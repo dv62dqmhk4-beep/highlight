@@ -101,9 +101,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 .card-footer{display:flex;justify-content:space-between;align-items:center;margin-top:10px;}
 .card-tags{display:flex;gap:4px;flex-wrap:wrap;}
 .tag{padding:3px 8px;border-radius:var(--radius-tag);font-size:11px;font-weight:500;}
-.card.chatgpt .tag{background:var(--chatgpt-tag-bg);color:var(--chatgpt-text);}
-.card.gemini .tag{background:var(--gemini-tag-bg);color:var(--gemini-text);}
-.card.claude .tag{background:var(--claude-tag-bg);color:var(--claude-text);}
 .tag.cat-career{background:var(--cat-career-bg);color:var(--cat-career);border:0.5px solid var(--cat-career-border);}
 .tag.cat-personal{background:var(--cat-personal-bg);color:var(--cat-personal);border:0.5px solid var(--cat-personal-border);}
 .tag.cat-faith{background:var(--cat-faith-bg);color:var(--cat-faith);border:0.5px solid var(--cat-faith-border);}
@@ -305,6 +302,27 @@ function formatText(raw){
   return raw.replace(/([^\n])\s*(\d+[.)]\s)/g,'$1\n$2').trim();
 }
 
+function tagColor(name){
+  // 태그 이름을 해시해서 항상 동일한 컬러 배정
+  let h=0;for(let i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))&0xffff;
+  const palette=[
+    {bg:'#EDE9FE',color:'#6D28D9',border:'rgba(124,58,237,0.2)'},
+    {bg:'#FCE7F3',color:'#9D174D',border:'rgba(219,39,119,0.2)'},
+    {bg:'#D1FAE5',color:'#065F46',border:'rgba(5,150,105,0.2)'},
+    {bg:'#FEF3C7',color:'#92400E',border:'rgba(217,119,6,0.2)'},
+    {bg:'#DBEAFE',color:'#1E40AF',border:'rgba(66,133,244,0.2)'},
+    {bg:'#FFE4E6',color:'#9F1239',border:'rgba(220,38,38,0.2)'},
+    {bg:'#F0FDF4',color:'#166534',border:'rgba(22,163,74,0.2)'},
+    {bg:'#FFF7ED',color:'#9A3412',border:'rgba(234,88,12,0.2)'},
+  ];
+  return palette[h%palette.length];
+}
+
+function renderTagChip(t){
+  const c=tagColor(t);
+  return `<span class="tag" style="background:${c.bg};color:${c.color};border:0.5px solid ${c.border}">${t}</span>`;
+}
+
 function renderCards(){
   const list=document.getElementById('cardList');
   const filtered=currentFilter==='all'?items:items.filter(i=>i.source===currentFilter);
@@ -315,7 +333,7 @@ function renderCards(){
   }
   list.innerHTML=filtered.map(item=>{
     const catTag=item.category?`<span class="tag cat-${item.category}">${CAT_LABELS[item.category]||item.category}</span>`:'';
-    const aiTags=item.tags.map(t=>`<span class="tag">${t}</span>`).join('');
+    const aiTags=item.tags.map(t=>renderTagChip(t)).join('');
     return `<div class="card ${item.source}" onclick="goDetail(${item.id},'scHome')">
       <div class="card-source">${ICON_SVG[item.source]} ${SOURCE_LABELS[item.source]}</div>
       <div class="card-text">${item.text.replace(/\n/g,' ')}</div>
@@ -464,7 +482,7 @@ function goTagDetail(tagName){
   } else {
     body.innerHTML=tagged.map(item=>{
       const catTag=item.category?`<span class="tag cat-${item.category}">${CAT_LABELS[item.category]||item.category}</span>`:'';
-      const aiTags=item.tags.map(t=>`<span class="tag">${t}</span>`).join('');
+      const aiTags=item.tags.map(t=>renderTagChip(t)).join('');
       return `<div class="card ${item.source}" onclick="goDetail(${item.id},'scTagDetail')">
         <div class="card-source">${SOURCE_LABELS[item.source]}</div>
         <div class="card-text">${item.text.replace(/\n/g,' ')}</div>
@@ -498,7 +516,7 @@ function doSearch(){
   function hl(t,ks){let o=t;ks.forEach(k=>{const r=new RegExp(`(${k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`,'gi');o=o.replace(r,'<mark class="highlight-match">$1</mark>');});return o;}
   body.innerHTML=`<div class="search-result-count">${results.length}개 결과</div>${results.map(item=>{
     const catTag=item.category?`<span class="tag cat-${item.category}">${CAT_LABELS[item.category]||item.category}</span>`:'';
-    return `<div class="card ${item.source}" onclick="goDetail(${item.id},'scSearch')"><div class="card-source">${ICON_SVG[item.source]} ${SOURCE_LABELS[item.source]}</div><div class="card-text">${hl(item.text.replace(/\n/g,' '),kws)}</div><div class="card-footer"><div class="card-tags">${catTag}${item.tags.map(t=>`<span class="tag">${hl(t,kws)}</span>`).join('')}</div><span class="card-date">${item.date}</span></div></div>`;
+    return `<div class="card ${item.source}" onclick="goDetail(${item.id},'scSearch')"><div class="card-source">${SOURCE_LABELS[item.source]}</div><div class="card-text">${hl(item.text.replace(/\n/g,' '),kws)}</div><div class="card-footer"><div class="card-tags">${catTag}${item.tags.map(t=>renderTagChip(t)).join('')}</div><span class="card-date">${item.date}</span></div></div>`;
   }).join('')}`;
 }
 function clearSearch(){document.getElementById('searchInput').value='';document.getElementById('searchClear').style.display='none';document.getElementById('searchBody').innerHTML=`<div class="search-empty-state"><div class="empty-icon">🔍</div><div class="empty-title">무엇이든 검색해보세요</div><div class="empty-sub">본문 내용, 태그, AI 출처까지<br>자연어로 통합 검색돼요</div></div>`;document.getElementById('searchInput').focus();}
