@@ -341,8 +341,33 @@ body {
 }
 @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
 
-/* Empty state */
-.empty { text-align: center; padding: 48px 0 24px; }
+/* Search */
+.search-input-wrap {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface);
+  border: 0.5px solid var(--border-md);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+}
+.search-input {
+  flex: 1; border: none; background: transparent;
+  font-family: var(--sans); font-size: 15px;
+  color: var(--text); outline: none;
+}
+.search-input::placeholder { color: var(--text3); }
+.search-clear {
+  background: none; border: none; cursor: pointer;
+  color: var(--text3); display: flex; align-items: center; padding: 0;
+}
+.search-empty-state { text-align: center; padding: 60px 0 24px; }
+.search-result-count {
+  font-size: 11px; font-weight: 500; color: var(--text3);
+  letter-spacing: 0.6px; text-transform: uppercase;
+  margin: 16px 0 10px;
+}
+.highlight-match { background: rgba(255,210,0,0.35); border-radius: 2px; padding: 0 1px; }
+
+/* Deleted paste-btn style no longer needed */
 .empty-icon { font-size: 40px; margin-bottom: 12px; }
 .empty-title { font-family: var(--serif); font-size: 20px; color: var(--text2); margin-bottom: 6px; }
 .empty-sub { font-size: 13px; color: var(--text3); line-height: 1.5; }
@@ -361,11 +386,8 @@ body {
     <div class="header">
       <div class="header-row">
         <div>
-          <div class="header-count" id="headerCount">14개 저장됨</div>
+          <div class="header-count" id="headerCount">0개 저장됨</div>
           <div class="header-title">Highlight</div>
-        </div>
-        <div class="icon-btn" onclick="toggleSearch()">
-          <svg viewBox="0 0 24 24" width="18" height="18"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
         </div>
       </div>
       <div class="seg-wrap" id="segWrap">
@@ -382,16 +404,10 @@ body {
         <textarea class="input-textarea" id="inputTA" placeholder="AI 답변에서 마음에 드는 부분을 여기에 적거나 붙여넣으세요..." rows="3"></textarea>
         <div class="input-divider"></div>
         <div class="input-bottom">
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <button class="paste-btn" onclick="doPaste()">
-              <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              붙여넣기
-            </button>
-            <div class="src-row" id="srcRow">
-              <div class="src-chip on chatgpt" onclick="selSrc(this,'chatgpt')">ChatGPT</div>
-              <div class="src-chip gemini" onclick="selSrc(this,'gemini')">Gemini</div>
-              <div class="src-chip claude" onclick="selSrc(this,'claude')">Claude</div>
-            </div>
+          <div class="src-row" id="srcRow">
+            <div class="src-chip on chatgpt" onclick="selSrc(this,'chatgpt')">ChatGPT</div>
+            <div class="src-chip gemini" onclick="selSrc(this,'gemini')">Gemini</div>
+            <div class="src-chip claude" onclick="selSrc(this,'claude')">Claude</div>
           </div>
           <button class="save-btn-sm" onclick="doSave()">저장</button>
         </div>
@@ -406,13 +422,13 @@ body {
         <svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         저장함
       </div>
+      <div class="tab" onclick="goTab('search')">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+        검색
+      </div>
       <div class="tab" onclick="goTab('tags')">
         <svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
         태그
-      </div>
-      <div class="tab" onclick="">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-        설정
       </div>
     </div>
   </div>
@@ -420,9 +436,9 @@ body {
   <!-- DETAIL SCREEN -->
   <div class="screen" id="scDetail">
     <div class="detail-header">
-      <button class="back-btn" onclick="goBack()">
+      <button class="back-btn" id="detailBackBtn" onclick="goBack()">
         <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-        저장함
+        <span id="detailBackLabel">저장함</span>
       </button>
       <div id="detailBadge" class="detail-badge chatgpt">ChatGPT</div>
     </div>
@@ -446,13 +462,50 @@ body {
         <svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         저장함
       </div>
+      <div class="tab" onclick="goTab('search')">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+        검색
+      </div>
       <div class="tab" onclick="goTab('tags')">
         <svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
         태그
       </div>
-      <div class="tab">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-        설정
+    </div>
+  </div>
+
+  <!-- SEARCH SCREEN -->
+  <div class="screen" id="scSearch">
+    <div class="header" style="padding-bottom:10px;">
+      <div class="header-row" style="margin-bottom:12px;">
+        <div class="header-title">검색</div>
+      </div>
+      <div class="search-input-wrap">
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--text3)"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+        <input class="search-input" id="searchInput" placeholder="본문, 태그, 출처 모두 검색..." oninput="doSearch()" autocomplete="off" autocorrect="off" spellcheck="false"/>
+        <button class="search-clear" id="searchClear" onclick="clearSearch()" style="display:none;">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="body" id="searchBody">
+      <div class="search-empty-state">
+        <div class="empty-icon">🔍</div>
+        <div class="empty-title">무엇이든 검색해보세요</div>
+        <div class="empty-sub">본문 내용, 태그, AI 출처까지<br>자연어로 통합 검색돼요</div>
+      </div>
+    </div>
+    <div class="tabbar">
+      <div class="tab" onclick="goTab('home')">
+        <svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        저장함
+      </div>
+      <div class="tab on">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+        검색
+      </div>
+      <div class="tab" onclick="goTab('tags')">
+        <svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        태그
       </div>
     </div>
   </div>
@@ -462,9 +515,6 @@ body {
     <div class="tags-header">
       <div class="header-row">
         <div class="header-title">태그</div>
-        <div class="icon-btn">
-          <svg viewBox="0 0 24 24" width="18" height="18"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
-        </div>
       </div>
     </div>
     <div class="body" id="tagsBody"></div>
@@ -473,13 +523,13 @@ body {
         <svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         저장함
       </div>
+      <div class="tab" onclick="goTab('search')">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+        검색
+      </div>
       <div class="tab on">
         <svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
         태그
-      </div>
-      <div class="tab">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-        설정
       </div>
     </div>
   </div>
@@ -495,15 +545,6 @@ const SOURCE_ICONS = {
 const SOURCE_LABELS = { chatgpt:'ChatGPT', gemini:'Gemini', claude:'Claude' };
 
 let items = JSON.parse(localStorage.getItem('hl_items') || '[]');
-if (!items.length) {
-  items = [
-    { id:1, text:'프롬프트 엔지니어링의 핵심은 모델이 어떻게 생각하는지를 이해하고, 그 사고 흐름을 원하는 방향으로 유도하는 것입니다. 좋은 프롬프트는 명확한 역할과 구체적인 맥락을 포함합니다.', source:'chatgpt', tags:['AI','프롬프트','엔지니어링'], date:'방금 전' },
-    { id:2, text:'제텔카스텐 방식은 아이디어를 원자 단위로 쪼개서 서로 연결하는 메모 시스템입니다. 각 노트는 하나의 개념만 담아야 합니다.', source:'gemini', tags:['생산성','메모'], date:'오전 11:05' },
-    { id:3, text:'사용자 인터뷰는 답을 얻기 위한 자리가 아니라, 우리가 모르는 질문을 발견하기 위한 자리입니다.', source:'claude', tags:['UX','리서치'], date:'어제' },
-    { id:4, text:'복리의 진짜 힘은 수익률이 아니라 시간입니다. 10년보다 20년이 훨씬 극적인 차이를 만듭니다.', source:'chatgpt', tags:['투자','경제'], date:'어제' },
-    { id:5, text:'글쓰기는 생각을 표현하는 도구가 아니라, 생각 자체를 만들어내는 과정입니다.', source:'gemini', tags:['글쓰기','사고'], date:'5월 13일' },
-  ];
-}
 
 let currentFilter = 'all';
 let currentItemId = null;
@@ -516,11 +557,11 @@ function renderCards() {
   const filtered = currentFilter === 'all' ? items : items.filter(i => i.source === currentFilter);
   document.getElementById('headerCount').textContent = items.length + '개 저장됨';
   if (!filtered.length) {
-    list.innerHTML = `<div class="empty"><div class="empty-icon">✦</div><div class="empty-title">아직 저장된 항목이 없어요</div><div class="empty-sub">AI 답변에서 마음에 드는 부분을<br>위에 입력하고 저장해보세요</div></div>`;
+    list.innerHTML = `<div class="empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 0 24px;text-align:center;"><div class="empty-icon">✦</div><div class="empty-title">아직 저장된 항목이 없어요</div><div class="empty-sub">AI 답변에서 마음에 드는 부분을<br>위에 입력하고 저장해보세요</div></div>`;
     return;
   }
   list.innerHTML = filtered.map(item => `
-    <div class="card ${item.source}" onclick="goDetail(${item.id})">
+    <div class="card ${item.source}" onclick="goDetail(${item.id},'scHome')">
       <div class="card-source">${SOURCE_ICONS[item.source]} ${SOURCE_LABELS[item.source]}</div>
       <div class="card-text">${item.text}</div>
       <div class="card-footer">
@@ -640,21 +681,6 @@ async function doSave() {
     selectedSrc==='chatgpt'?'#10A37F':selectedSrc==='gemini'?'#4285F4':'#D97706');
 }
 
-function goDetail(id) {
-  const item = items.find(i=>i.id===id);
-  if (!item) return;
-  currentItemId = id;
-  const badge = document.getElementById('detailBadge');
-  badge.className = `detail-badge ${item.source}`;
-  badge.innerHTML = `${SOURCE_ICONS[item.source]} ${SOURCE_LABELS[item.source]}`;
-  document.getElementById('detailText').textContent = item.text;
-  document.getElementById('detailMeta').textContent = item.date;
-  document.getElementById('detailTags').innerHTML = item.tags.map(t=>
-    `<span class="detail-tag">${t} <span class="auto-badge">AI</span></span>`
-  ).join('');
-  showScreen('scDetail');
-}
-
 function addManualTag() {
   const input = document.getElementById('tagInput');
   const val = input.value.trim();
@@ -681,15 +707,96 @@ function doDelete() {
 function goTab(tab) {
   if (tab === 'home') { renderCards(); showScreen('scHome'); }
   else if (tab === 'tags') { renderTags(); showScreen('scTags'); }
+  else if (tab === 'search') { showScreen('scSearch'); setTimeout(()=>document.getElementById('searchInput').focus(),200); }
 }
 
-function goBack() { renderCards(); showScreen('scHome'); }
+let prevScreen = 'scHome';
+
+function goBack() {
+  renderCards();
+  showScreen(prevScreen === 'scSearch' ? 'scSearch' : 'scHome');
+}
 
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s=>{ s.classList.remove('active'); s.style.display=''; });
   const el = document.getElementById(id);
   el.classList.add('active');
   el.style.display = 'flex';
+}
+
+function goDetail(id, fromScreen) {
+  const item = items.find(i=>i.id===id);
+  if (!item) return;
+  prevScreen = fromScreen || 'scHome';
+  currentItemId = id;
+  const badge = document.getElementById('detailBadge');
+  badge.className = `detail-badge ${item.source}`;
+  badge.innerHTML = `${SOURCE_ICONS[item.source]} ${SOURCE_LABELS[item.source]}`;
+  document.getElementById('detailText').textContent = item.text;
+  document.getElementById('detailMeta').textContent = item.date;
+  document.getElementById('detailTags').innerHTML = item.tags.map(t=>
+    `<span class="detail-tag">${t} <span class="auto-badge">AI</span></span>`
+  ).join('');
+  document.getElementById('detailBackLabel').textContent = prevScreen === 'scSearch' ? '검색' : '저장함';
+  showScreen('scDetail');
+}
+
+function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  const clear = document.getElementById('searchClear');
+  const body = document.getElementById('searchBody');
+  clear.style.display = q ? 'flex' : 'none';
+
+  if (!q) {
+    body.innerHTML = `<div class="search-empty-state"><div class="empty-icon">🔍</div><div class="empty-title">무엇이든 검색해보세요</div><div class="empty-sub">본문 내용, 태그, AI 출처까지<br>자연어로 통합 검색돼요</div></div>`;
+    return;
+  }
+
+  const keywords = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const results = items.filter(item => {
+    const haystack = [
+      item.text,
+      ...item.tags,
+      SOURCE_LABELS[item.source],
+      item.date
+    ].join(' ').toLowerCase();
+    return keywords.every(k => haystack.includes(k));
+  });
+
+  if (!results.length) {
+    body.innerHTML = `<div class="search-empty-state"><div class="empty-icon">😶</div><div class="empty-title">"${q}" 검색 결과 없음</div><div class="empty-sub">다른 키워드로 검색해보세요</div></div>`;
+    return;
+  }
+
+  function hl(text, kws) {
+    let out = text;
+    kws.forEach(k => {
+      const re = new RegExp(`(${k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
+      out = out.replace(re, '<mark class="highlight-match">$1</mark>');
+    });
+    return out;
+  }
+
+  body.innerHTML = `
+    <div class="search-result-count">${results.length}개 결과</div>
+    ${results.map(item => `
+      <div class="card ${item.source}" onclick="goDetail(${item.id},'scSearch')">
+        <div class="card-source">${SOURCE_ICONS[item.source]} ${SOURCE_LABELS[item.source]}</div>
+        <div class="card-text">${hl(item.text, keywords)}</div>
+        <div class="card-footer">
+          <div class="card-tags">${item.tags.map(t=>`<span class="tag">${hl(t,keywords)}</span>`).join('')}</div>
+          <span class="card-date">${item.date}</span>
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
+
+function clearSearch() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchClear').style.display = 'none';
+  document.getElementById('searchBody').innerHTML = `<div class="search-empty-state"><div class="empty-icon">🔍</div><div class="empty-title">무엇이든 검색해보세요</div><div class="empty-sub">본문 내용, 태그, AI 출처까지<br>자연어로 통합 검색돼요</div></div>`;
+  document.getElementById('searchInput').focus();
 }
 
 function toggleSearch() {}
