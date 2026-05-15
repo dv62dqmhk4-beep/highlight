@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="theme-color" content="#F7F6F2"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="Highlight"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="icon-192.png"/>
+<title>Highlight</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap');
+
+:root {
+  --chatgpt: #10A37F;
+  --chatgpt-bg: #E8F7F3;
+  --chatgpt-border: rgba(16,163,127,0.25);
+  --chatgpt-tag-bg: rgba(16,163,127,0.12);
+  --chatgpt-text: #06604A;
+
+  --gemini: #4285F4;
+  --gemini-bg: #EAF1FE;
+  --gemini-border: rgba(66,133,244,0.25);
+  --gemini-tag-bg: rgba(66,133,244,0.12);
+  --gemini-text: #1A56B0;
+
+  --claude: #D97706;
+  --claude-bg: #FEF3E2;
+  --claude-border: rgba(217,119,6,0.25);
+  --claude-tag-bg: rgba(217,119,6,0.12);
+  --claude-text: #92400E;
+
+  --bg: #F7F6F2;
+  --surface: #FFFFFF;
+  --surface2: #F0EFE9;
+  --border: rgba(0,0,0,0.07);
+  --border-md: rgba(0,0,0,0.12);
+  --text: #1A1916;
+  --text2: #6B6860;
+  --text3: #A8A79F;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-tag: 6px;
+
+  --serif: 'Instrument Serif', Georgia, serif;
+  --sans: 'DM Sans', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+}
+
+/* App shell */
+#app { height: 100vh; display: flex; flex-direction: column; max-width: 430px; margin: 0 auto; position: relative; background: var(--bg); }
+
+/* Screens */
+.screen { display: none; flex-direction: column; height: 100%; }
+.screen.active { display: flex; }
+
+/* Scrollable body */
+.body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 16px 90px; }
+.body::-webkit-scrollbar { display: none; }
+
+/* Header */
+.header {
+  padding: 56px 20px 14px;
+  flex-shrink: 0;
+}
+.header-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 16px; }
+.header-title {
+  font-family: var(--serif);
+  font-size: 30px;
+  color: var(--text);
+  line-height: 1;
+}
+.header-count {
+  font-size: 12px;
+  color: var(--text3);
+  font-weight: 400;
+  margin-bottom: 2px;
+}
+.icon-btn {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 0.5px solid var(--border-md);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 17px; color: var(--text2);
+  flex-shrink: 0;
+}
+
+/* Segmented */
+.seg-wrap {
+  background: var(--surface2);
+  border-radius: 12px;
+  padding: 3px;
+  display: flex; gap: 2px;
+}
+.seg {
+  flex: 1; padding: 7px 4px;
+  border-radius: 10px;
+  font-size: 13px; font-weight: 500;
+  text-align: center; cursor: pointer;
+  color: var(--text2);
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+.seg.on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.seg.chatgpt.on { color: var(--chatgpt); }
+.seg.gemini.on  { color: var(--gemini); }
+.seg.claude.on  { color: var(--claude); }
+
+/* Input card */
+.input-card {
+  background: var(--surface);
+  border: 0.5px solid var(--border-md);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 12px;
+  transition: border-color 0.2s;
+}
+.input-card:focus-within { border-color: var(--border-md); box-shadow: 0 0 0 3px rgba(0,0,0,0.04); }
+.input-textarea {
+  width: 100%; border: none; background: transparent;
+  font-family: var(--sans); font-size: 14px; font-weight: 300;
+  color: var(--text); resize: none; outline: none;
+  line-height: 1.6; min-height: 60px;
+}
+.input-textarea::placeholder { color: var(--text3); }
+.input-divider { height: 0.5px; background: var(--border); margin: 10px 0; }
+.input-bottom { display: flex; justify-content: space-between; align-items: center; }
+.paste-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 6px 11px; border-radius: 8px;
+  background: var(--surface2);
+  border: 0.5px solid var(--border-md);
+  font-size: 12px; font-weight: 500; color: var(--text2);
+  cursor: pointer; font-family: var(--sans);
+}
+.src-row { display: flex; gap: 5px; }
+.src-chip {
+  padding: 5px 11px; border-radius: 20px;
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  border: 0.5px solid var(--border-md);
+  background: var(--surface2); color: var(--text2);
+  font-family: var(--sans); transition: all 0.15s;
+}
+.src-chip.on.chatgpt { background: var(--chatgpt-bg); border-color: var(--chatgpt); color: var(--chatgpt-text); }
+.src-chip.on.gemini  { background: var(--gemini-bg);  border-color: var(--gemini);  color: var(--gemini-text); }
+.src-chip.on.claude  { background: var(--claude-bg);  border-color: var(--claude);  color: var(--claude-text); }
+.save-btn-sm {
+  padding: 7px 16px; border-radius: 8px;
+  background: var(--text); color: var(--bg);
+  font-size: 13px; font-weight: 500; border: none; cursor: pointer;
+  font-family: var(--sans); transition: opacity 0.15s;
+}
+.save-btn-sm:active { opacity: 0.75; }
+
+/* Section label */
+.section-label {
+  font-size: 11px; font-weight: 500; color: var(--text3);
+  letter-spacing: 0.6px; text-transform: uppercase;
+  margin: 18px 0 10px;
+}
+
+/* Cards */
+.card {
+  border-radius: var(--radius);
+  padding: 15px 16px;
+  margin-bottom: 9px;
+  cursor: pointer;
+  border: 0.5px solid transparent;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  position: relative;
+}
+.card:active { transform: scale(0.985); }
+.card.chatgpt { background: var(--chatgpt-bg); border-color: var(--chatgpt-border); }
+.card.gemini  { background: var(--gemini-bg);  border-color: var(--gemini-border); }
+.card.claude  { background: var(--claude-bg);  border-color: var(--claude-border); }
+
+.card-source {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.4px;
+  display: flex; align-items: center; gap: 4px; margin-bottom: 8px;
+}
+.card.chatgpt .card-source { color: var(--chatgpt); }
+.card.gemini  .card-source { color: var(--gemini); }
+.card.claude  .card-source { color: var(--claude); }
+
+.card-text {
+  font-size: 14px; font-weight: 300; line-height: 1.65;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.card.chatgpt .card-text { color: var(--chatgpt-text); }
+.card.gemini  .card-text { color: var(--gemini-text); }
+.card.claude  .card-text { color: var(--claude-text); }
+
+.card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+.card-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.tag {
+  padding: 3px 8px; border-radius: var(--radius-tag);
+  font-size: 11px; font-weight: 500;
+}
+.card.chatgpt .tag { background: var(--chatgpt-tag-bg); color: var(--chatgpt-text); }
+.card.gemini  .tag { background: var(--gemini-tag-bg);  color: var(--gemini-text); }
+.card.claude  .tag { background: var(--claude-tag-bg);  color: var(--claude-text); }
+.card-date { font-size: 11px; color: var(--text3); flex-shrink: 0; margin-left: 8px; }
+
+/* Tab bar */
+.tabbar {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 10;
+  height: 72px;
+  background: rgba(247,246,242,0.92);
+  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  border-top: 0.5px solid var(--border-md);
+  display: flex; align-items: flex-start; justify-content: space-around;
+  padding: 10px 8px 0;
+}
+.tab {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  cursor: pointer; color: var(--text3); font-size: 10px; font-weight: 500;
+  min-width: 60px; padding: 2px 0;
+}
+.tab.on { color: var(--text); }
+.tab svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Detail screen */
+.detail-header {
+  padding: 56px 20px 16px;
+  flex-shrink: 0;
+}
+.back-btn {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 16px; font-weight: 500; cursor: pointer;
+  background: none; border: none; color: var(--gemini); padding: 0;
+  font-family: var(--sans); margin-bottom: 20px;
+}
+.detail-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 13px; border-radius: 20px;
+  font-size: 12px; font-weight: 600;
+}
+.detail-badge.chatgpt { background: var(--chatgpt-bg); color: var(--chatgpt); border: 0.5px solid var(--chatgpt-border); }
+.detail-badge.gemini  { background: var(--gemini-bg);  color: var(--gemini);  border: 0.5px solid var(--gemini-border); }
+.detail-badge.claude  { background: var(--claude-bg);  color: var(--claude);  border: 0.5px solid var(--claude-border); }
+
+.detail-text {
+  font-size: 17px; font-weight: 300; line-height: 1.75;
+  color: var(--text); margin: 16px 0 10px;
+}
+.detail-meta { font-size: 12px; color: var(--text3); margin-bottom: 24px; }
+
+.detail-section-label {
+  font-size: 11px; font-weight: 500; color: var(--text3);
+  letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 10px;
+}
+.detail-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+.detail-tag {
+  padding: 5px 12px; border-radius: var(--radius-tag);
+  font-size: 12px; font-weight: 500;
+  background: var(--surface2);
+  border: 0.5px solid var(--border-md);
+  color: var(--text2); display: flex; align-items: center; gap: 5px;
+  cursor: pointer;
+}
+.detail-tag .auto-badge {
+  font-size: 9px; background: var(--border-md); padding: 1px 4px;
+  border-radius: 3px; color: var(--text3);
+}
+
+.tag-add-row { display: flex; gap: 8px; margin-bottom: 28px; }
+.tag-add-input {
+  flex: 1; padding: 9px 14px; border-radius: var(--radius-sm);
+  border: 0.5px solid var(--border-md);
+  background: var(--surface);
+  font-size: 14px; color: var(--text); outline: none;
+  font-family: var(--sans);
+}
+.tag-add-btn {
+  padding: 9px 16px; border-radius: var(--radius-sm);
+  background: var(--surface); border: 0.5px solid var(--border-md);
+  font-size: 13px; font-weight: 500; color: var(--text2);
+  cursor: pointer; font-family: var(--sans);
+}
+.delete-btn {
+  width: 100%; padding: 14px; border-radius: var(--radius);
+  background: #FEF2F2;
+  border: 0.5px solid rgba(220,38,38,0.2);
+  color: #DC2626; font-size: 14px; font-weight: 500;
+  cursor: pointer; font-family: var(--sans);
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+
+/* Tags screen */
+.tags-header {
+  padding: 56px 20px 16px; flex-shrink: 0;
+}
+.tag-section { margin-bottom: 8px; }
+.tag-section-title {
+  font-size: 11px; font-weight: 500; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.6px;
+  margin: 18px 0 10px 2px;
+}
+.tag-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 14px; border-radius: var(--radius-sm);
+  background: var(--surface); border: 0.5px solid var(--border);
+  margin-bottom: 6px; cursor: pointer;
+  transition: background 0.12s;
+}
+.tag-row:active { background: var(--surface2); }
+.tag-row-left { display: flex; align-items: center; gap: 12px; }
+.tag-icon {
+  width: 34px; height: 34px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.tag-row-name { font-size: 14px; font-weight: 500; color: var(--text); }
+.tag-row-count { font-size: 12px; color: var(--text3); margin-top: 1px; }
+.tag-row-arrow { color: var(--text3); font-size: 18px; }
+
+/* Saving overlay */
+.saving-bar {
+  position: absolute; top: 0; left: 0; right: 0;
+  background: var(--chatgpt); color: white;
+  font-size: 13px; font-weight: 500;
+  padding: 12px 20px;
+  display: none; align-items: center; gap: 8px;
+  z-index: 100;
+  animation: slideDown 0.25s ease;
+}
+@keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+
+/* Empty state */
+.empty { text-align: center; padding: 48px 0 24px; }
+.empty-icon { font-size: 40px; margin-bottom: 12px; }
+.empty-title { font-family: var(--serif); font-size: 20px; color: var(--text2); margin-bottom: 6px; }
+.empty-sub { font-size: 13px; color: var(--text3); line-height: 1.5; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- SAVING BAR -->
+  <div class="saving-bar" id="savingBar">
+    <span>✦</span> <span id="savingMsg">AI가 태그를 분석 중...</span>
+  </div>
+
+  <!-- HOME SCREEN -->
+  <div class="screen active" id="scHome">
+    <div class="header">
+      <div class="header-row">
+        <div>
+          <div class="header-count" id="headerCount">14개 저장됨</div>
+          <div class="header-title">Highlight</div>
+        </div>
+        <div class="icon-btn" onclick="toggleSearch()">
+          <svg viewBox="0 0 24 24" width="18" height="18"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+        </div>
+      </div>
+      <div class="seg-wrap" id="segWrap">
+        <div class="seg on" onclick="filterSeg(this,'all')">전체</div>
+        <div class="seg chatgpt" onclick="filterSeg(this,'chatgpt')">ChatGPT</div>
+        <div class="seg gemini" onclick="filterSeg(this,'gemini')">Gemini</div>
+        <div class="seg claude" onclick="filterSeg(this,'claude')">Claude</div>
+      </div>
+    </div>
+
+    <div class="body" id="homeBody">
+      <!-- Input card -->
+      <div class="input-card">
+        <textarea class="input-textarea" id="inputTA" placeholder="AI 답변에서 마음에 드는 부분을 여기에 적거나 붙여넣으세요..." rows="3"></textarea>
+        <div class="input-divider"></div>
+        <div class="input-bottom">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <button class="paste-btn" onclick="doPaste()">
+              <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              붙여넣기
+            </button>
+            <div class="src-row" id="srcRow">
+              <div class="src-chip on chatgpt" onclick="selSrc(this,'chatgpt')">ChatGPT</div>
+              <div class="src-chip gemini" onclick="selSrc(this,'gemini')">Gemini</div>
+              <div class="src-chip claude" onclick="selSrc(this,'claude')">Claude</div>
+            </div>
+          </div>
+          <button class="save-btn-sm" onclick="doSave()">저장</button>
+        </div>
+      </div>
+
+      <div class="section-label">최근 저장</div>
+      <div id="cardList"></div>
+    </div>
+
+    <div class="tabbar">
+      <div class="tab on" onclick="goTab('home')">
+        <svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        저장함
+      </div>
+      <div class="tab" onclick="goTab('tags')">
+        <svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        태그
+      </div>
+      <div class="tab" onclick="">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        설정
+      </div>
+    </div>
+  </div>
+
+  <!-- DETAIL SCREEN -->
+  <div class="screen" id="scDetail">
+    <div class="detail-header">
+      <button class="back-btn" onclick="goBack()">
+        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        저장함
+      </button>
+      <div id="detailBadge" class="detail-badge chatgpt">ChatGPT</div>
+    </div>
+    <div class="body">
+      <div class="detail-text" id="detailText"></div>
+      <div class="detail-meta" id="detailMeta"></div>
+      <div class="detail-section-label">자동 태그</div>
+      <div class="detail-tags" id="detailTags"></div>
+      <div class="detail-section-label">태그 추가</div>
+      <div class="tag-add-row">
+        <input class="tag-add-input" placeholder="태그 입력..." id="tagInput"/>
+        <button class="tag-add-btn" onclick="addManualTag()">추가</button>
+      </div>
+      <button class="delete-btn" onclick="doDelete()">
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        삭제
+      </button>
+    </div>
+    <div class="tabbar">
+      <div class="tab" onclick="goTab('home')">
+        <svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        저장함
+      </div>
+      <div class="tab" onclick="goTab('tags')">
+        <svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        태그
+      </div>
+      <div class="tab">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        설정
+      </div>
+    </div>
+  </div>
+
+  <!-- TAGS SCREEN -->
+  <div class="screen" id="scTags">
+    <div class="tags-header">
+      <div class="header-row">
+        <div class="header-title">태그</div>
+        <div class="icon-btn">
+          <svg viewBox="0 0 24 24" width="18" height="18"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+        </div>
+      </div>
+    </div>
+    <div class="body" id="tagsBody"></div>
+    <div class="tabbar">
+      <div class="tab" onclick="goTab('home')">
+        <svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        저장함
+      </div>
+      <div class="tab on">
+        <svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        태그
+      </div>
+      <div class="tab">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        설정
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const SOURCE_ICONS = {
+  chatgpt: '●',
+  gemini: '✦',
+  claude: '◆'
+};
+const SOURCE_LABELS = { chatgpt:'ChatGPT', gemini:'Gemini', claude:'Claude' };
+
+let items = JSON.parse(localStorage.getItem('hl_items') || '[]');
+if (!items.length) {
+  items = [
+    { id:1, text:'프롬프트 엔지니어링의 핵심은 모델이 어떻게 생각하는지를 이해하고, 그 사고 흐름을 원하는 방향으로 유도하는 것입니다. 좋은 프롬프트는 명확한 역할과 구체적인 맥락을 포함합니다.', source:'chatgpt', tags:['AI','프롬프트','엔지니어링'], date:'방금 전' },
+    { id:2, text:'제텔카스텐 방식은 아이디어를 원자 단위로 쪼개서 서로 연결하는 메모 시스템입니다. 각 노트는 하나의 개념만 담아야 합니다.', source:'gemini', tags:['생산성','메모'], date:'오전 11:05' },
+    { id:3, text:'사용자 인터뷰는 답을 얻기 위한 자리가 아니라, 우리가 모르는 질문을 발견하기 위한 자리입니다.', source:'claude', tags:['UX','리서치'], date:'어제' },
+    { id:4, text:'복리의 진짜 힘은 수익률이 아니라 시간입니다. 10년보다 20년이 훨씬 극적인 차이를 만듭니다.', source:'chatgpt', tags:['투자','경제'], date:'어제' },
+    { id:5, text:'글쓰기는 생각을 표현하는 도구가 아니라, 생각 자체를 만들어내는 과정입니다.', source:'gemini', tags:['글쓰기','사고'], date:'5월 13일' },
+  ];
+}
+
+let currentFilter = 'all';
+let currentItemId = null;
+let selectedSrc = 'chatgpt';
+
+function save() { localStorage.setItem('hl_items', JSON.stringify(items)); }
+
+function renderCards() {
+  const list = document.getElementById('cardList');
+  const filtered = currentFilter === 'all' ? items : items.filter(i => i.source === currentFilter);
+  document.getElementById('headerCount').textContent = items.length + '개 저장됨';
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">✦</div><div class="empty-title">아직 저장된 항목이 없어요</div><div class="empty-sub">AI 답변에서 마음에 드는 부분을<br>위에 입력하고 저장해보세요</div></div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(item => `
+    <div class="card ${item.source}" onclick="goDetail(${item.id})">
+      <div class="card-source">${SOURCE_ICONS[item.source]} ${SOURCE_LABELS[item.source]}</div>
+      <div class="card-text">${item.text}</div>
+      <div class="card-footer">
+        <div class="card-tags">${item.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+        <span class="card-date">${item.date}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderTags() {
+  const tagMap = {};
+  items.forEach(item => {
+    item.tags.forEach(t => { tagMap[t] = (tagMap[t]||0)+1; });
+  });
+  const sorted = Object.entries(tagMap).sort((a,b)=>b[1]-a[1]);
+  const icons = ['💡','✍️','📈','🎯','🧠','🔬','💬','📚','🎨','🔧'];
+  const colors = [
+    {bg:'#EEEDFE',color:'#534AB7'},{bg:'#E1F5EE',color:'#0F6E56'},
+    {bg:'#FAEEDA',color:'#854F0B'},{bg:'#FBEAF0',color:'#993556'},
+    {bg:'#E6F1FB',color:'#185FA5'},{bg:'#FAECE7',color:'#993C1D'},
+  ];
+  const body = document.getElementById('tagsBody');
+  if (!sorted.length) { body.innerHTML = '<div class="empty"><div class="empty-title">태그가 없어요</div></div>'; return; }
+  body.innerHTML = `
+    <div class="tag-section-title">전체 태그 (${sorted.length}개)</div>
+    ${sorted.map(([name,cnt],i)=>{
+      const c = colors[i % colors.length];
+      const icon = icons[i % icons.length];
+      return `<div class="tag-row"><div class="tag-row-left"><div class="tag-icon" style="background:${c.bg};color:${c.color}">${icon}</div><div><div class="tag-row-name">${name}</div><div class="tag-row-count">${cnt}개 항목</div></div></div><span class="tag-row-arrow">›</span></div>`;
+    }).join('')}
+  `;
+}
+
+function filterSeg(el, src) {
+  document.querySelectorAll('.seg').forEach(s=>s.classList.remove('on'));
+  el.classList.add('on');
+  currentFilter = src;
+  renderCards();
+}
+
+function selSrc(el, src) {
+  document.querySelectorAll('.src-chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  selectedSrc = src;
+}
+
+function doPaste() {
+  if (navigator.clipboard && navigator.clipboard.readText) {
+    navigator.clipboard.readText().then(text => {
+      document.getElementById('inputTA').value = text;
+    }).catch(() => {
+      document.getElementById('inputTA').focus();
+    });
+  } else {
+    document.getElementById('inputTA').focus();
+  }
+}
+
+async function extractTags(text) {
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 100,
+        messages: [{
+          role: 'user',
+          content: `다음 텍스트에서 핵심 키워드 태그를 2~4개 추출해줘. 단어만, 쉼표로 구분해서 답해줘. 설명 없이 태그만.\n\n"${text}"`
+        }]
+      })
+    });
+    const data = await res.json();
+    const raw = data.content?.[0]?.text || '';
+    return raw.split(',').map(t=>t.trim()).filter(Boolean).slice(0,4);
+  } catch {
+    return autoTagFallback(text);
+  }
+}
+
+function autoTagFallback(text) {
+  const kws = {
+    'AI':['ai','인공지능','모델','llm','gpt','claude','gemini'],
+    '프롬프트':['프롬프트','prompt'],
+    '생산성':['생산성','효율','시스템','메모','노트'],
+    'UX':['ux','사용자','인터뷰','디자인'],
+    '투자':['투자','복리','수익','경제','돈'],
+    '글쓰기':['글쓰기','글','작문','writing'],
+    '개발':['코드','개발','프로그래밍','javascript','python'],
+  };
+  const lower = text.toLowerCase();
+  return Object.entries(kws).filter(([,v])=>v.some(k=>lower.includes(k))).map(([k])=>k).slice(0,3);
+}
+
+function showSavingBar(msg, color) {
+  const bar = document.getElementById('savingBar');
+  document.getElementById('savingMsg').textContent = msg;
+  bar.style.background = color || '#10A37F';
+  bar.style.display = 'flex';
+  setTimeout(()=>{ bar.style.display='none'; }, 2200);
+}
+
+async function doSave() {
+  const text = document.getElementById('inputTA').value.trim();
+  if (!text) return;
+  showSavingBar('AI가 태그를 분석 중...', 
+    selectedSrc==='chatgpt'?'#10A37F':selectedSrc==='gemini'?'#4285F4':'#D97706');
+  const tags = await extractTags(text);
+  const now = new Date();
+  const date = `오늘 ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
+  items.unshift({ id: Date.now(), text, source: selectedSrc, tags, date });
+  save();
+  document.getElementById('inputTA').value = '';
+  renderCards();
+  showSavingBar('저장 완료 ✓',
+    selectedSrc==='chatgpt'?'#10A37F':selectedSrc==='gemini'?'#4285F4':'#D97706');
+}
+
+function goDetail(id) {
+  const item = items.find(i=>i.id===id);
+  if (!item) return;
+  currentItemId = id;
+  const badge = document.getElementById('detailBadge');
+  badge.className = `detail-badge ${item.source}`;
+  badge.innerHTML = `${SOURCE_ICONS[item.source]} ${SOURCE_LABELS[item.source]}`;
+  document.getElementById('detailText').textContent = item.text;
+  document.getElementById('detailMeta').textContent = item.date;
+  document.getElementById('detailTags').innerHTML = item.tags.map(t=>
+    `<span class="detail-tag">${t} <span class="auto-badge">AI</span></span>`
+  ).join('');
+  showScreen('scDetail');
+}
+
+function addManualTag() {
+  const input = document.getElementById('tagInput');
+  const val = input.value.trim();
+  if (!val) return;
+  const item = items.find(i=>i.id===currentItemId);
+  if (!item || item.tags.includes(val)) return;
+  item.tags.push(val);
+  save();
+  input.value = '';
+  const container = document.getElementById('detailTags');
+  container.innerHTML = item.tags.map(t=>
+    `<span class="detail-tag">${t} <span class="auto-badge">AI</span></span>`
+  ).join('');
+}
+
+function doDelete() {
+  if (!confirm('삭제할까요?')) return;
+  items = items.filter(i=>i.id!==currentItemId);
+  save();
+  renderCards();
+  showScreen('scHome');
+}
+
+function goTab(tab) {
+  if (tab === 'home') { renderCards(); showScreen('scHome'); }
+  else if (tab === 'tags') { renderTags(); showScreen('scTags'); }
+}
+
+function goBack() { renderCards(); showScreen('scHome'); }
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>{ s.classList.remove('active'); s.style.display=''; });
+  const el = document.getElementById(id);
+  el.classList.add('active');
+  el.style.display = 'flex';
+}
+
+function toggleSearch() {}
+
+renderCards();
+</script>
+</body>
+</html>
