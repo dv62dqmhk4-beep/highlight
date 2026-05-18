@@ -108,6 +108,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 .detail-badge.chatgpt{background:var(--chatgpt-bg);color:var(--chatgpt);border:0.5px solid var(--chatgpt-border);}
 .detail-badge.gemini{background:var(--gemini-bg);color:var(--gemini);border:0.5px solid var(--gemini-border);}
 .detail-badge.claude{background:var(--claude-bg);color:var(--claude);border:0.5px solid var(--claude-border);}
+.src-dropdown{position:absolute;top:calc(100% + 6px);left:0;z-index:50;background:var(--surface);border:0.5px solid var(--border-md);border-radius:10px;padding:4px;box-shadow:0 8px 24px rgba(0,0,0,0.15);min-width:130px;}
+.src-dd-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:500;color:var(--text);cursor:pointer;}
+.src-dd-item:active{background:var(--surface2);}
+.src-dd-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .detail-text{font-size:16px;font-weight:300;line-height:1.8;color:var(--text);margin:16px 0 6px;white-space:pre-line;user-select:none;-webkit-user-select:none;}
 .detail-meta{font-size:12px;color:var(--text3);margin-bottom:24px;}
 .detail-section-label{font-size:11px;font-weight:500;color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:10px;}
@@ -246,7 +250,17 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
   <div class="screen" id="scDetail" ontouchstart="sbStart(event)" ontouchmove="sbMove(event)" ontouchend="sbEnd(event)">
     <div class="detail-header">
       <button class="back-btn" onclick="goBack()"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg><span id="detailBackLabel">저장함</span></button>
-      <div id="detailBadge" class="detail-badge">-</div>
+      <div style="position:relative;display:inline-block;">
+        <div id="detailBadge" class="detail-badge" onclick="toggleSrcDropdown(event)" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+          <span id="detailBadgeText">-</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:2px;"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div id="srcDropdown" class="src-dropdown" style="display:none;">
+          <div class="src-dd-item" onclick="changeSrc('chatgpt')"><span class="src-dd-dot" style="background:var(--chatgpt)"></span>ChatGPT</div>
+          <div class="src-dd-item" onclick="changeSrc('gemini')"><span class="src-dd-dot" style="background:var(--gemini)"></span>Gemini</div>
+          <div class="src-dd-item" onclick="changeSrc('claude')"><span class="src-dd-dot" style="background:var(--claude)"></span>Claude</div>
+        </div>
+      </div>
     </div>
     <div class="body">
       <div class="detail-text" id="detailText"></div>
@@ -499,7 +513,7 @@ function goDetail(id,from){
   currentItemId=id; prevScreen=from||'scHome';
   const badge=document.getElementById('detailBadge');
   badge.className=`detail-badge ${item.source}`;
-  badge.textContent=SRC[item.source];
+  document.getElementById('detailBadgeText').textContent=SRC[item.source];
   document.getElementById('detailText').textContent=item.text;
   document.getElementById('detailMeta').textContent=formatDate(item.ts||item.id);
   document.getElementById('detailBackLabel').textContent=
@@ -507,6 +521,35 @@ function goDetail(id,from){
   renderDetailTags(item);
   showScreen('scDetail');
 }
+
+function toggleSrcDropdown(e){
+  e.stopPropagation();
+  const dd=document.getElementById('srcDropdown');
+  dd.style.display = dd.style.display==='block' ? 'none' : 'block';
+}
+
+function changeSrc(newSrc){
+  const item=items.find(i=>i.id===currentItemId); if(!item) return;
+  item.source=newSrc;
+  saveItems();
+  // 배지 업데이트
+  const badge=document.getElementById('detailBadge');
+  badge.className=`detail-badge ${newSrc}`;
+  document.getElementById('detailBadgeText').textContent=SRC[newSrc];
+  // 드롭다운 닫기
+  document.getElementById('srcDropdown').style.display='none';
+  // 카드 리스트 갱신
+  renderCards();
+}
+
+// 화면 다른 곳 탭하면 드롭다운 닫기
+document.addEventListener('click', (e)=>{
+  const dd=document.getElementById('srcDropdown');
+  const badge=document.getElementById('detailBadge');
+  if(dd && dd.style.display==='block' && !badge.contains(e.target) && !dd.contains(e.target)){
+    dd.style.display='none';
+  }
+});
 
 function renderDetailTags(item){
   const container = document.getElementById('detailTags');
