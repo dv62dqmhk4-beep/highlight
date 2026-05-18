@@ -386,6 +386,7 @@ function renderCards() {
   }
   list.innerHTML = filtered.map(item => {
     const chips = (item.tags||[]).map(t=>tagPillHtml(t)).join('');
+    const dateStr = formatDate(item.ts||item.id);
     return `<div class="card-wrap" id="wrap-${item.id}">
       <div class="card-delete-bg"><span>삭제</span></div>
       <div class="card ${item.source}" id="card-${item.id}"
@@ -397,7 +398,7 @@ function renderCards() {
         <div class="card-text">${item.text.replace(/\n/g,' ')}</div>
         <div class="card-footer">
           <div class="card-tags">${chips}</div>
-          <span class="card-date">${item.date}</span>
+          <span class="card-date">${dateStr}</span>
         </div>
       </div>
     </div>`;
@@ -447,11 +448,22 @@ function filterSeg(el,src){ document.querySelectorAll('.seg').forEach(s=>s.class
 
 function formatText(raw){ return raw.replace(/([^\n])\s*(\d+[.)]\s)/g,'$1\n$2').trim(); }
 
+function formatDate(ts){
+  const now=new Date(), d=new Date(ts);
+  const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const itemDay=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  const diff=(today-itemDay)/(1000*60*60*24);
+  const hm=`${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+  if(diff===0) return `오늘 ${hm}`;
+  if(diff===1) return `어제 ${hm}`;
+  return `${d.getMonth()+1}월 ${d.getDate()}일 ${hm}`;
+}
+
 function doSave(){
   const raw=document.getElementById('inputTA').value.trim(); if(!raw) return;
   const text=formatText(raw);
-  const now=new Date(), date=`오늘 ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
-  items.unshift({ id:Date.now(), text, source:selectedSrc, tags:[...selectedInputTags], date });
+  const ts=Date.now();
+  items.unshift({ id:ts, text, source:selectedSrc, tags:[...selectedInputTags], ts });
   saveItems();
   document.getElementById('inputTA').value='';
   selectedInputTags.clear();
@@ -478,7 +490,7 @@ function goDetail(id,from){
   badge.className=`detail-badge ${item.source}`;
   badge.textContent=SRC[item.source];
   document.getElementById('detailText').textContent=item.text;
-  document.getElementById('detailMeta').textContent=item.date;
+  document.getElementById('detailMeta').textContent=formatDate(item.ts||item.id);
   document.getElementById('detailBackLabel').textContent=
     from==='scSearch'?'검색':from==='scTagDetail'?'태그':'저장함';
   renderDetailTags(item);
@@ -667,30 +679,33 @@ function toggleItemTag(idx){
 }
 
 /* ─────────────────────────────────────────
-   DRAG REORDER — sheet only, data-idx based
+   DRAG REORDER — sheet only, DOM-move during drag
 ───────────────────────────────────────── */
-let drag = { active:false, fromIdx:null, curIdx:null, clone:null, el:null, offsetY:0 };
+let drag = { active:false, fromIdx:null, curIdx:null, clone:null, ghostEl:null, offsetY:0, listEl:null };
 
 function dragInit(e, idx, context) {
-  if(context !== 'sheet') return; // 홈에서는 드래그 없음
-  e.preventDefault();
-  e.stopPropagation();
+  if(context !== 'sheet') return;
+  e.preventDefault(); e.stopPropagation();
 
   const listEl = document.getElementById('teiList');
-  const el = listEl.querySelector(`.tei[data-idx="${idx}"]`);
+  const allTeis = [...listEl.querySelectorAll('.tei')];
+  const el = allTeis.find(t=>parseInt(t.dataset.idx)===idx);
   if(!el) return;
 
   const rect = el.getBoundingClientRect();
   const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-  const clone = el.cloneNode(true);
-  clone.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;
-    z-index:9999;opacity:0.9;box-shadow:0 8px 28px rgba(0,0,0,0.2);border-radius:10px;
-    pointer-events:none;background:var(--surface2);`;
-  document.body.appendChild(clone);
+  // 고스트 (원본 위치 표시)
   el.style.opacity = '0.25';
 
-  drag = { active:true, fromIdx:idx, curIdx:idx, clone, el, offsetY: clientY - rect.top, listEl };
+  // 클론 (드래그 중 따라다니는 것)
+  const clone = el.cloneNode(true);
+  clone.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;
+    z-index:9999;opacity:0.95;box-shadow:0 8px 28px rgba(0,0,0,0.22);border-radius:10px;
+    pointer-events:none;`;
+  document.body.appendChild(clone);
+
+  drag = { active:true, fromIdx:idx, curIdx:idx, clone, ghostEl:el, offsetY:clientY-rect.top, listEl };
 
   window.addEventListener('pointermove', onDragMove, {passive:false});
   window.addEventListener('pointerup',   onDragEnd);
@@ -713,27 +728,38 @@ function onDragMoveT(e){
 }
 
 function reorderByY(clientY){
-  const els = [...drag.listEl.querySelectorAll('.tei')];
+  const allTeis = [...drag.listEl.querySelectorAll('.tei')];
   let targetIdx = drag.curIdx;
-  els.forEach(el=>{
+
+  allTeis.forEach(el=>{
+    if(el === drag.ghostEl) return;
     const i = parseInt(el.dataset.idx);
-    if(i === drag.curIdx) return;
     const rect = el.getBoundingClientRect();
     const mid = rect.top + rect.height/2;
-    if(i < drag.curIdx && clientY < mid) targetIdx = i;
-    if(i > drag.curIdx && clientY > mid) targetIdx = i;
+    if(drag.curIdx > i && clientY < mid) targetIdx = i;
+    if(drag.curIdx < i && clientY > mid) targetIdx = i;
   });
-  if(targetIdx !== drag.curIdx){
-    const moved = globalTags.splice(drag.curIdx,1)[0];
-    globalTags.splice(targetIdx,0,moved);
-    drag.curIdx = targetIdx;
-    drag.fromIdx = targetIdx;
-    saveTags();
-    renderSheet();
-    // 새 DOM에서 드래그 중인 el 재연결
-    const newEl = drag.listEl.querySelector(`.tei[data-idx="${targetIdx}"]`);
-    if(newEl){ drag.el = newEl; newEl.style.opacity='0.25'; }
-  }
+
+  if(targetIdx === drag.curIdx) return;
+
+  // globalTags 배열 순서 변경
+  const moved = globalTags.splice(drag.curIdx, 1)[0];
+  globalTags.splice(targetIdx, 0, moved);
+  drag.curIdx = targetIdx;
+
+  // DOM만 직접 재정렬 (재렌더 없이)
+  const parent = drag.listEl;
+  const sortedTeis = [...parent.querySelectorAll('.tei')].sort((a,b)=>{
+    const ai = globalTags.findIndex(t=>t.name === a.querySelector('.tei-name-input')?.value);
+    const bi = globalTags.findIndex(t=>t.name === b.querySelector('.tei-name-input')?.value);
+    return ai - bi;
+  });
+  sortedTeis.forEach(el=>parent.appendChild(el));
+
+  // data-idx 업데이트
+  [...parent.querySelectorAll('.tei')].forEach((el,i)=>{ el.dataset.idx=i; });
+  drag.ghostEl = parent.querySelectorAll('.tei')[targetIdx];
+  if(drag.ghostEl) drag.ghostEl.style.opacity='0.25';
 }
 
 function onDragEnd(){
@@ -743,14 +769,13 @@ function onDragEnd(){
   window.removeEventListener('touchmove',   onDragMoveT);
   window.removeEventListener('touchend',    onDragEnd);
   if(drag.clone) drag.clone.remove();
-  if(drag.el) drag.el.style.opacity='';
-  drag = { active:false, fromIdx:null, curIdx:null, clone:null, el:null, offsetY:0 };
+  if(drag.ghostEl) drag.ghostEl.style.opacity='';
+  drag = { active:false, fromIdx:null, curIdx:null, clone:null, ghostEl:null, offsetY:0, listEl:null };
   saveTags();
-  renderSheet();
+  renderSheet();       // 드롭 완료 후에만 재렌더
   renderInputTagRow();
 }
 
-/* old stubs */
 function tdStart(){} function tdMove(){} function tdEnd(){}
 
 /* ─────────────────────────────────────────
@@ -792,6 +817,7 @@ function goTagDetail(tagName){
   else {
     body.innerHTML=tagged.map(item=>{
       const chips=(item.tags||[]).map(t=>tagPillHtml(t)).join('');
+      const dateStr=formatDate(item.ts||item.id);
       return `<div class="card-wrap" id="wrap-${item.id}">
         <div class="card-delete-bg"><span>삭제</span></div>
         <div class="card ${item.source}" id="card-${item.id}"
@@ -801,7 +827,7 @@ function goTagDetail(tagName){
           ontouchend="swEnd(event,${item.id})">
           <div class="card-source">${SRC[item.source]}</div>
           <div class="card-text">${item.text.replace(/\n/g,' ')}</div>
-          <div class="card-footer"><div class="card-tags">${chips}</div><span class="card-date">${item.date}</span></div>
+          <div class="card-footer"><div class="card-tags">${chips}</div><span class="card-date">${dateStr}</span></div>
         </div>
       </div>`;
     }).join('');
@@ -847,7 +873,7 @@ function doSearch(){
     return `<div class="card-wrap"><div class="card ${item.source}" onclick="goDetail(${item.id},'scSearch')">
       <div class="card-source">${SRC[item.source]}</div>
       <div class="card-text">${hl(item.text.replace(/\n/g,' '),kws)}</div>
-      <div class="card-footer"><div class="card-tags">${chips}</div><span class="card-date">${item.date}</span></div>
+      <div class="card-footer"><div class="card-tags">${chips}</div><span class="card-date">${formatDate(item.ts||item.id)}</span></div>
     </div></div>`;
   }).join('');
 }
