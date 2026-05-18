@@ -316,9 +316,20 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 ───────────────────────────────────────── */
 const SRC = {chatgpt:'ChatGPT', gemini:'Gemini', claude:'Claude'};
 
-// globalTags: [{name, color}]  — 사용자가 만든 태그 목록, 순서 포함
+// globalTags: [{name, color}]
 let globalTags = JSON.parse(localStorage.getItem('hl_tags') || '[]');
 let items      = JSON.parse(localStorage.getItem('hl_items') || '[]');
+
+// 중복 제거 (이전 버그로 인한 데이터 정리)
+(function dedupTags(){
+  const seen = new Set();
+  globalTags = globalTags.filter(t=>{
+    if(!t || !t.name || seen.has(t.name)) return false;
+    seen.add(t.name);
+    return true;
+  });
+  localStorage.setItem('hl_tags', JSON.stringify(globalTags));
+})();
 
 function saveTags()  { localStorage.setItem('hl_tags',  JSON.stringify(globalTags)); }
 function saveItems() { localStorage.setItem('hl_items', JSON.stringify(items)); }
@@ -679,9 +690,21 @@ function toggleItemTag(idx){
 }
 
 /* ─────────────────────────────────────────
-   DRAG REORDER — sheet only, DOM-move during drag
+   DRAG REORDER — sheet only
+   접근법: 드래그 중에는 DOM을 절대 건드리지 않고
+   클론만 따라다니게 함. drop 시점에 한번에 재배치.
 ───────────────────────────────────────── */
-let drag = { active:false, fromIdx:null, curIdx:null, clone:null, ghostEl:null, offsetY:0, listEl:null };
+let drag = {
+  active:false,
+  fromIdx:null,    // 드래그 시작 인덱스
+  curIdx:null,     // 현재 가상 인덱스
+  clone:null,
+  origEl:null,
+  offsetY:0,
+  itemHeight:0,
+  listTop:0,
+  itemCount:0
+};
 
 function dragInit(e, idx, context) {
   if(context !== 'sheet') return;
@@ -689,23 +712,40 @@ function dragInit(e, idx, context) {
 
   const listEl = document.getElementById('teiList');
   const allTeis = [...listEl.querySelectorAll('.tei')];
-  const el = allTeis.find(t=>parseInt(t.dataset.idx)===idx);
-  if(!el) return;
+  const origEl = allTeis[idx];
+  if(!origEl) return;
 
-  const rect = el.getBoundingClientRect();
+  const rect = origEl.getBoundingClientRect();
+  const listRect = listEl.getBoundingClientRect();
   const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-  // 고스트 (원본 위치 표시)
-  el.style.opacity = '0.25';
+  // 첫 두 아이템 간 간격으로 itemHeight 계산
+  let itemHeight = rect.height + 6;
+  if(allTeis.length > 1){
+    const r2 = allTeis[1].getBoundingClientRect();
+    const r1 = allTeis[0].getBoundingClientRect();
+    itemHeight = r2.top - r1.top;
+  }
 
-  // 클론 (드래그 중 따라다니는 것)
-  const clone = el.cloneNode(true);
+  // 원본 안 보이게
+  origEl.style.visibility = 'hidden';
+
+  // 클론
+  const clone = origEl.cloneNode(true);
   clone.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;
-    z-index:9999;opacity:0.95;box-shadow:0 8px 28px rgba(0,0,0,0.22);border-radius:10px;
-    pointer-events:none;`;
+    z-index:9999;opacity:0.95;box-shadow:0 8px 28px rgba(0,0,0,0.25);border-radius:10px;
+    pointer-events:none;visibility:visible;`;
   document.body.appendChild(clone);
 
-  drag = { active:true, fromIdx:idx, curIdx:idx, clone, ghostEl:el, offsetY:clientY-rect.top, listEl };
+  drag = {
+    active:true,
+    fromIdx:idx, curIdx:idx,
+    clone, origEl,
+    offsetY: clientY - rect.top,
+    itemHeight,
+    listTop: listRect.top,
+    itemCount: allTeis.length
+  };
 
   window.addEventListener('pointermove', onDragMove, {passive:false});
   window.addEventListener('pointerup',   onDragEnd);
@@ -715,51 +755,37 @@ function dragInit(e, idx, context) {
 
 function onDragMove(e){
   if(!drag.active) return;
-  const clientY = e.clientY;
-  drag.clone.style.top = (clientY - drag.offsetY) + 'px';
-  reorderByY(clientY);
+  drag.clone.style.top = (e.clientY - drag.offsetY) + 'px';
+  updateGhostIdx(e.clientY);
 }
 function onDragMoveT(e){
   if(!drag.active) return;
   e.preventDefault();
-  const clientY = e.touches[0].clientY;
-  drag.clone.style.top = (clientY - drag.offsetY) + 'px';
-  reorderByY(clientY);
+  const y = e.touches[0].clientY;
+  drag.clone.style.top = (y - drag.offsetY) + 'px';
+  updateGhostIdx(y);
 }
 
-function reorderByY(clientY){
-  const allTeis = [...drag.listEl.querySelectorAll('.tei')];
-  let targetIdx = drag.curIdx;
+function updateGhostIdx(clientY){
+  // 클론 중심 Y로 새 인덱스 추정
+  const centerY = clientY - drag.offsetY + drag.itemHeight/2;
+  const rel = centerY - drag.listTop;
+  let newIdx = Math.round(rel / drag.itemHeight);
+  newIdx = Math.max(0, Math.min(drag.itemCount-1, newIdx));
 
-  allTeis.forEach(el=>{
-    if(el === drag.ghostEl) return;
-    const i = parseInt(el.dataset.idx);
-    const rect = el.getBoundingClientRect();
-    const mid = rect.top + rect.height/2;
-    if(drag.curIdx > i && clientY < mid) targetIdx = i;
-    if(drag.curIdx < i && clientY > mid) targetIdx = i;
-  });
+  if(newIdx === drag.curIdx) return;
+  drag.curIdx = newIdx;
 
-  if(targetIdx === drag.curIdx) return;
-
-  // globalTags 배열 순서 변경
-  const moved = globalTags.splice(drag.curIdx, 1)[0];
-  globalTags.splice(targetIdx, 0, moved);
-  drag.curIdx = targetIdx;
-
-  // DOM만 직접 재정렬 (재렌더 없이)
-  const parent = drag.listEl;
-  const sortedTeis = [...parent.querySelectorAll('.tei')].sort((a,b)=>{
-    const ai = globalTags.findIndex(t=>t.name === a.querySelector('.tei-name-input')?.value);
-    const bi = globalTags.findIndex(t=>t.name === b.querySelector('.tei-name-input')?.value);
-    return ai - bi;
-  });
-  sortedTeis.forEach(el=>parent.appendChild(el));
-
-  // data-idx 업데이트
-  [...parent.querySelectorAll('.tei')].forEach((el,i)=>{ el.dataset.idx=i; });
-  drag.ghostEl = parent.querySelectorAll('.tei')[targetIdx];
-  if(drag.ghostEl) drag.ghostEl.style.opacity='0.25';
+  // 시각적 placeholder: 원본을 새 위치로 이동시킴
+  const listEl = document.getElementById('teiList');
+  const allTeis = [...listEl.querySelectorAll('.tei')];
+  // origEl을 newIdx 위치로 이동
+  const ref = allTeis[newIdx];
+  if(ref && ref !== drag.origEl){
+    if(newIdx > drag.fromIdx) ref.after(drag.origEl);
+    else ref.before(drag.origEl);
+    drag.fromIdx = newIdx;
+  }
 }
 
 function onDragEnd(){
@@ -768,12 +794,25 @@ function onDragEnd(){
   window.removeEventListener('pointerup',   onDragEnd);
   window.removeEventListener('touchmove',   onDragMoveT);
   window.removeEventListener('touchend',    onDragEnd);
+
   if(drag.clone) drag.clone.remove();
-  if(drag.ghostEl) drag.ghostEl.style.opacity='';
-  drag = { active:false, fromIdx:null, curIdx:null, clone:null, ghostEl:null, offsetY:0, listEl:null };
-  saveTags();
-  renderSheet();       // 드롭 완료 후에만 재렌더
+  if(drag.origEl) drag.origEl.style.visibility = '';
+
+  // globalTags 배열을 DOM 순서대로 재정렬
+  const listEl = document.getElementById('teiList');
+  const finalOrder = [...listEl.querySelectorAll('.tei')]
+    .map(el => parseInt(el.dataset.idx));
+  const newTags = finalOrder.map(i => globalTags[i]).filter(Boolean);
+  if(newTags.length === globalTags.length){
+    globalTags = newTags;
+    saveTags();
+  }
+
+  drag = { active:false, fromIdx:null, curIdx:null, clone:null, origEl:null, offsetY:0, itemHeight:0, listTop:0, itemCount:0 };
+
+  renderSheet();
   renderInputTagRow();
+  renderCards();
 }
 
 function tdStart(){} function tdMove(){} function tdEnd(){}
