@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
 <meta name="apple-mobile-web-app-title" content="Highlight"/>
 <link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="icon-192.png"/>
 <title>Highlight</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap');
@@ -113,7 +114,15 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 .src-dd-item:active{background:var(--surface2);}
 .src-dd-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .detail-text{font-size:16px;font-weight:300;line-height:1.8;color:var(--text);margin:16px 0 6px;white-space:pre-line;user-select:none;-webkit-user-select:none;}
-.detail-meta{font-size:12px;color:var(--text3);margin-bottom:24px;}
+.detail-edit-box{display:none;margin:14px 0 8px;}
+.detail-edit-textarea{width:100%;min-height:220px;border:0.5px solid var(--border-md);background:var(--surface);border-radius:var(--radius);padding:14px 16px;font-family:var(--sans);font-size:15px;font-weight:300;line-height:1.7;color:var(--text);outline:none;resize:vertical;}
+.detail-edit-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px;}
+.detail-action-row{display:flex;gap:8px;margin:12px 0 24px;flex-wrap:wrap;}
+.detail-action-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 13px;border-radius:var(--radius-sm);background:var(--surface2);border:0.5px solid var(--border-md);color:var(--text2);font-size:13px;font-weight:500;cursor:pointer;font-family:var(--sans);}
+.detail-action-btn.primary{background:var(--text);border-color:var(--text);color:var(--bg);}
+.detail-action-btn.danger{background:#FEF2F2;border-color:rgba(220,38,38,0.2);color:#DC2626;}
+@media(prefers-color-scheme:dark){.detail-action-btn.danger{background:#2D1010;border-color:rgba(220,38,38,0.3);color:#F87171;}}
+.detail-meta{font-size:12px;color:var(--text3);margin-bottom:0;}
 .detail-section-label{font-size:11px;font-weight:500;color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:10px;}
 .detail-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;min-height:28px;}
 .detail-tag{padding:5px 12px;border-radius:var(--radius-tag);font-size:12px;font-weight:500;}
@@ -124,6 +133,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 /* Toast */
 .toast{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.75);color:#fff;font-size:13px;font-weight:500;padding:9px 18px;border-radius:20px;white-space:nowrap;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:200;}
 .toast.show{opacity:1;}
+.undo-toast{position:absolute;left:16px;right:16px;bottom:88px;z-index:240;background:rgba(26,25,22,0.92);color:#fff;border-radius:16px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;font-weight:500;opacity:0;transform:translateY(10px);pointer-events:none;transition:opacity 0.25s,transform 0.25s;}
+.undo-toast.show{opacity:1;transform:translateY(0);pointer-events:auto;}
+.undo-toast button{border:none;background:transparent;color:#A7F3D0;font-family:var(--sans);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
+@media(prefers-color-scheme:dark){.undo-toast{background:rgba(240,239,233,0.94);color:#111110;}.undo-toast button{color:#047857;}}
 
 /* Saving bar */
 .saving-bar{position:absolute;top:0;left:0;right:0;color:white;font-size:13px;font-weight:500;padding:12px 20px;display:none;align-items:center;gap:8px;z-index:100;animation:slideDown 0.25s ease;}
@@ -188,6 +201,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 <div id="app">
   <div class="saving-bar" id="savingBar"><span>✦</span><span id="savingMsg"></span></div>
   <div class="toast" id="toast"></div>
+  <div class="undo-toast" id="undoToast"><span id="undoMsg"></span><button onclick="undoDelete()">실행취소</button></div>
 
   <!-- Sheet -->
   <div class="sheet-overlay" id="sheetOverlay" onclick="overlayClick(event)">
@@ -264,7 +278,22 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
     </div>
     <div class="body">
       <div class="detail-text" id="detailText"></div>
+      <div class="detail-edit-box" id="detailEditBox">
+        <textarea class="detail-edit-textarea" id="detailEditTA" placeholder="저장한 내용을 수정하세요..."></textarea>
+        <div class="detail-edit-actions">
+          <button class="detail-action-btn" onclick="cancelEditDetail()">취소</button>
+          <button class="detail-action-btn primary" onclick="saveEditDetail()">수정 저장</button>
+        </div>
+      </div>
       <div class="detail-meta" id="detailMeta"></div>
+      <div class="detail-action-row" id="detailActionRow">
+        <button class="detail-action-btn" onclick="copyDetailText()">
+          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>복사
+        </button>
+        <button class="detail-action-btn" id="detailEditBtn" onclick="startEditDetail()">
+          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>수정
+        </button>
+      </div>
       <div class="detail-section-label">태그</div>
       <div class="detail-tags" id="detailTags"></div>
       <button class="tag-edit-btn" onclick="openSheet(currentItemId)">+ 새 태그 추가</button>
@@ -330,19 +359,75 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 ───────────────────────────────────────── */
 const SRC = {chatgpt:'ChatGPT', gemini:'Gemini', claude:'Claude'};
 
-// globalTags: [{name, color}]
-let globalTags = JSON.parse(localStorage.getItem('hl_tags') || '[]');
-let items      = JSON.parse(localStorage.getItem('hl_items') || '[]');
+function escapeHTML(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
-// 중복 제거 (이전 버그로 인한 데이터 정리)
-(function dedupTags(){
+function escapeAttr(value) {
+  return escapeHTML(value).replace(/`/g, '&#096;');
+}
+
+function escXML(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function safeSource(src) {
+  return Object.prototype.hasOwnProperty.call(SRC, src) ? src : 'chatgpt';
+}
+
+function safeId(id) {
+  const n = Number(id);
+  return Number.isFinite(n) ? n : Date.now();
+}
+
+function enc(value) {
+  return encodeURIComponent(String(value ?? ''));
+}
+function dec(value) {
+  return decodeURIComponent(String(value ?? ''));
+}
+
+function safeParseArray(key) {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.warn(`${key} parse failed. Stored data was not overwritten.`, err);
+    return [];
+  }
+}
+
+// globalTags: [{name, color}]
+let globalTags = safeParseArray('hl_tags');
+let items      = safeParseArray('hl_items');
+
+// 기존 저장 데이터를 삭제하지 않고, 화면에서 안전하게 다룰 수 있도록 메모리에서만 보정
+items = items.map(item => ({
+  id: safeId(item?.id ?? item?.ts),
+  text: String(item?.text ?? ''),
+  source: safeSource(item?.source),
+  tags: Array.isArray(item?.tags) ? item.tags.map(String) : [],
+  ts: Number.isFinite(Number(item?.ts)) ? Number(item.ts) : safeId(item?.id)
+}));
+
+// 중복 태그는 화면에서만 정리하고, 앱 실행만으로 localStorage를 다시 쓰지 않음
+(function dedupTagsInMemory(){
   const seen = new Set();
   globalTags = globalTags.filter(t=>{
     if(!t || !t.name || seen.has(t.name)) return false;
     seen.add(t.name);
     return true;
   });
-  localStorage.setItem('hl_tags', JSON.stringify(globalTags));
 })();
 
 function saveTags()  { localStorage.setItem('hl_tags',  JSON.stringify(globalTags)); }
@@ -367,11 +452,11 @@ function tagChipHtml(name, selected) {
     : `background:var(--surface2);border-color:var(--border-md);color:var(--text2);`;
   // 홈에서는 드래그 없이 탭으로만 선택
   return `<span class="tag-chip" style="${style}" onclick="toggleInputTag(this)"
-    data-name="${encodeURIComponent(name)}">${name}</span>`;
+    data-name="${enc(name)}">${escapeHTML(name)}</span>`;
 }
 function tagPillHtml(name) {
   const m = tagMeta(name);
-  return `<span class="tag" style="background:${m.bg};color:${m.hex};border:0.5px solid ${m.hex}44">${name}</span>`;
+  return `<span class="tag" style="background:${m.bg};color:${m.hex};border:0.5px solid ${m.hex}44">${escapeHTML(name)}</span>`;
 }
 
 /* ─────────────────────────────────────────
@@ -390,7 +475,7 @@ function renderInputTagRow() {
 }
 
 function toggleInputTag(el) {
-  const name = decodeURIComponent(el.dataset.name);
+  const name = dec(el.dataset.name);
   if (selectedInputTags.has(name)) selectedInputTags.delete(name);
   else selectedInputTags.add(name);
   renderInputTagRow();
@@ -412,15 +497,17 @@ function renderCards() {
   list.innerHTML = filtered.map(item => {
     const chips = (item.tags||[]).map(t=>tagPillHtml(t)).join('');
     const dateStr = formatDate(item.ts||item.id);
-    return `<div class="card-wrap" id="wrap-${item.id}">
+    const src = safeSource(item.source);
+    const id = safeId(item.id);
+    return `<div class="card-wrap" id="wrap-${id}">
       <div class="card-delete-bg"><span>삭제</span></div>
-      <div class="card ${item.source}" id="card-${item.id}"
-        onclick="cardClick(event,${item.id},'scHome')"
-        ontouchstart="swStart(event,${item.id})"
-        ontouchmove="swMove(event,${item.id})"
-        ontouchend="swEnd(event,${item.id})">
-        <div class="card-source">${SRC[item.source]}</div>
-        <div class="card-text">${item.text.replace(/\n/g,' ')}</div>
+      <div class="card ${src}" id="card-${id}"
+        onclick="cardClick(event,${id},'scHome')"
+        ontouchstart="swStart(event,${id})"
+        ontouchmove="swMove(event,${id})"
+        ontouchend="swEnd(event,${id})">
+        <div class="card-source">${escapeHTML(SRC[src])}</div>
+        <div class="card-text">${escapeHTML(item.text.replace(/\n/g,' '))}</div>
         <div class="card-footer">
           <div class="card-tags">${chips}</div>
           <span class="card-date">${dateStr}</span>
@@ -450,7 +537,7 @@ function swEnd(e,id){
   if(s.dx<-40){
     if(c) c.style.transform='translateX(-80px)';
     const w=document.getElementById('wrap-'+id);
-    if(w) w.querySelector('.card-delete-bg').onclick=()=>{ items=items.filter(i=>i.id!==id); saveItems(); renderCards(); };
+    if(w) w.querySelector('.card-delete-bg').onclick=()=>deleteItemWithUndo(id);
   } else {
     if(c) c.style.transform='translateX(0)';
   }
@@ -506,20 +593,83 @@ function toast2(msg,color){
 /* ─────────────────────────────────────────
    DETAIL
 ───────────────────────────────────────── */
-let currentItemId=null, prevScreen='scHome';
+let currentItemId=null, prevScreen='scHome', isEditingDetail=false;
+let pendingUndo=null, undoTimer=null;
 
 function goDetail(id,from){
   const item=items.find(i=>i.id===id); if(!item) return;
   currentItemId=id; prevScreen=from||'scHome';
+  isEditingDetail=false;
   const badge=document.getElementById('detailBadge');
-  badge.className=`detail-badge ${item.source}`;
-  document.getElementById('detailBadgeText').textContent=SRC[item.source];
-  document.getElementById('detailText').textContent=item.text;
+  const src=safeSource(item.source);
+  badge.className=`detail-badge ${src}`;
+  document.getElementById('detailBadgeText').textContent=SRC[src];
   document.getElementById('detailMeta').textContent=formatDate(item.ts||item.id);
   document.getElementById('detailBackLabel').textContent=
     from==='scSearch'?'검색':from==='scTagDetail'?'태그':'저장함';
+  renderDetailContent(item);
   renderDetailTags(item);
   showScreen('scDetail');
+}
+
+function renderDetailContent(item){
+  document.getElementById('detailText').textContent=item.text;
+  document.getElementById('detailEditTA').value=item.text;
+  setDetailEditMode(false);
+}
+
+function setDetailEditMode(on){
+  isEditingDetail=on;
+  const textEl=document.getElementById('detailText');
+  const editBox=document.getElementById('detailEditBox');
+  const actionRow=document.getElementById('detailActionRow');
+  textEl.style.display=on?'none':'block';
+  editBox.style.display=on?'block':'none';
+  actionRow.style.display=on?'none':'flex';
+}
+
+function startEditDetail(){
+  const item=items.find(i=>i.id===currentItemId); if(!item) return;
+  document.getElementById('detailEditTA').value=item.text;
+  setDetailEditMode(true);
+  setTimeout(()=>document.getElementById('detailEditTA').focus(),0);
+}
+
+function cancelEditDetail(){
+  const item=items.find(i=>i.id===currentItemId); if(!item) return;
+  document.getElementById('detailEditTA').value=item.text;
+  setDetailEditMode(false);
+}
+
+function saveEditDetail(){
+  const item=items.find(i=>i.id===currentItemId); if(!item) return;
+  const raw=document.getElementById('detailEditTA').value.trim();
+  if(!raw){ showToast('내용을 입력해주세요'); return; }
+  item.text=formatText(raw);
+  saveItems();
+  document.getElementById('detailText').textContent=item.text;
+  document.getElementById('detailEditTA').value=item.text;
+  setDetailEditMode(false);
+  refreshListsAfterChange();
+  showToast('수정 완료 ✓');
+}
+
+async function copyDetailText(){
+  const item=items.find(i=>i.id===currentItemId); if(!item) return;
+  const text=item.text || '';
+  try{
+    if(navigator.clipboard && window.isSecureContext){
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta=document.createElement('textarea');
+      ta.value=text; ta.setAttribute('readonly','');
+      ta.style.position='fixed'; ta.style.left='-9999px';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+    }
+    showToast('복사 완료 ✓');
+  } catch(err){
+    showToast('복사에 실패했어요');
+  }
 }
 
 function toggleSrcDropdown(e){
@@ -564,8 +714,12 @@ function renderDetailTags(item){
       ? `background:${hexBg(tag.color)};color:${tag.color};border:0.5px solid ${tag.color}55;`
       : `background:var(--surface2);color:var(--text2);border:0.5px solid var(--border-md);`;
     return `<span class="detail-tag" style="${style};cursor:pointer;"
-      onclick="toggleDetailTag(${item.id},'${tag.name}')">${tag.name}</span>`;
+      onclick="toggleDetailTagEncoded(${safeId(item.id)},'${enc(tag.name)}')">${escapeHTML(tag.name)}</span>`;
   }).join('');
+}
+
+function toggleDetailTagEncoded(itemId, encodedTagName){
+  toggleDetailTag(itemId, dec(encodedTagName));
 }
 
 function toggleDetailTag(itemId, tagName){
@@ -579,9 +733,57 @@ function toggleDetailTag(itemId, tagName){
   renderCards();
 }
 
+function refreshListsAfterChange(){
+  renderCards();
+  renderTagsScreen();
+  const activeId=document.querySelector('.screen.active')?.id;
+  if(activeId==='scSearch') doSearch();
+  if(activeId==='scTagDetail' && currentTagDetailName) renderTagDetail(currentTagDetailName, false);
+}
+
+function deleteItemWithUndo(id, options={}){
+  const index=items.findIndex(i=>i.id===id); if(index<0) return;
+  const removed={...items[index], tags:[...(items[index].tags||[])]};
+  items.splice(index,1);
+  saveItems();
+  if(options.navigateHome){
+    currentItemId=null;
+    setDetailEditMode(false);
+    showScreen('scHome');
+  }
+  refreshListsAfterChange();
+  showUndoToast(removed,index);
+}
+
 function doDelete(){
   if(!confirm('삭제할까요?')) return;
-  items=items.filter(i=>i.id!==currentItemId); saveItems(); renderCards(); showScreen('scHome');
+  deleteItemWithUndo(currentItemId,{navigateHome:true});
+}
+
+function showUndoToast(item,index){
+  pendingUndo={item,index};
+  if(undoTimer) clearTimeout(undoTimer);
+  const u=document.getElementById('undoToast');
+  document.getElementById('undoMsg').textContent='삭제됨';
+  u.classList.add('show');
+  undoTimer=setTimeout(()=>{
+    pendingUndo=null;
+    u.classList.remove('show');
+  },5200);
+}
+
+function undoDelete(){
+  if(!pendingUndo) return;
+  const {item,index}=pendingUndo;
+  if(!items.some(i=>i.id===item.id)){
+    items.splice(Math.min(index,items.length),0,item);
+    saveItems();
+    refreshListsAfterChange();
+  }
+  pendingUndo=null;
+  if(undoTimer) clearTimeout(undoTimer);
+  document.getElementById('undoToast').classList.remove('show');
+  showToast('복원 완료 ✓');
 }
 
 function showToast(msg){
@@ -662,7 +864,7 @@ function renderSheet(){
       : '';
     return `<div class="tei" data-idx="${i}">
       <div style="flex:1;min-width:0;">
-        <input class="tei-name-input" value="${tag.name}"
+        <input class="tei-name-input" value="${escapeAttr(tag.name)}"
           onchange="renameTag(${i},this.value)"
           onblur="renameTag(${i},this.value)"/>
       </div>
@@ -785,19 +987,30 @@ function renderTagsScreen(){
   body.innerHTML=`<div class="tag-section-title">전체 태그 (${used.length}개)</div>`+
     used.map(([name,cnt],i)=>{
       const m=tagMeta(name), icon=TAG_LIST_ICONS[i%TAG_LIST_ICONS.length];
-      return `<div class="tag-list-row" onclick="goTagDetail('${name}')">
+      return `<div class="tag-list-row" onclick="goTagDetailEncoded('${enc(name)}')">
         <div class="tag-list-left">
           <div class="tag-list-icon" style="background:${m.bg};color:${m.hex}">${icon}</div>
-          <div><div class="tag-list-name">${name}</div><div class="tag-list-count">${cnt}개 항목</div></div>
+          <div><div class="tag-list-name">${escapeHTML(name)}</div><div class="tag-list-count">${cnt}개 항목</div></div>
         </div>
-        <button class="tag-export-btn" onclick="event.stopPropagation();exportDocx('${name}')">
+        <button class="tag-export-btn" onclick="event.stopPropagation();exportDocxEncoded('${enc(name)}')">
           <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>.docx
         </button>
       </div>`;
     }).join('');
 }
 
+function goTagDetailEncoded(encodedTagName){
+  goTagDetail(dec(encodedTagName));
+}
+
+let currentTagDetailName=null;
+
 function goTagDetail(tagName){
+  currentTagDetailName=tagName;
+  renderTagDetail(tagName, true);
+}
+
+function renderTagDetail(tagName, shouldShow){
   const tagged=items.filter(i=>(i.tags||[]).includes(tagName));
   document.getElementById('tagDetailTitle').textContent=tagName;
   document.getElementById('tagDetailCount').textContent=tagged.length+'개 항목';
@@ -807,21 +1020,23 @@ function goTagDetail(tagName){
     body.innerHTML=tagged.map(item=>{
       const chips=(item.tags||[]).map(t=>tagPillHtml(t)).join('');
       const dateStr=formatDate(item.ts||item.id);
-      return `<div class="card-wrap" id="wrap-${item.id}">
+      const src=safeSource(item.source);
+      const id=safeId(item.id);
+      return `<div class="card-wrap" id="wrap-${id}">
         <div class="card-delete-bg"><span>삭제</span></div>
-        <div class="card ${item.source}" id="card-${item.id}"
-          onclick="cardClick(event,${item.id},'scTagDetail')"
-          ontouchstart="swStart(event,${item.id})"
-          ontouchmove="swMove(event,${item.id})"
-          ontouchend="swEnd(event,${item.id})">
-          <div class="card-source">${SRC[item.source]}</div>
-          <div class="card-text">${item.text.replace(/\n/g,' ')}</div>
+        <div class="card ${src}" id="card-${id}"
+          onclick="cardClick(event,${id},'scTagDetail')"
+          ontouchstart="swStart(event,${id})"
+          ontouchmove="swMove(event,${id})"
+          ontouchend="swEnd(event,${id})">
+          <div class="card-source">${escapeHTML(SRC[src])}</div>
+          <div class="card-text">${escapeHTML(item.text.replace(/\n/g,' '))}</div>
           <div class="card-footer"><div class="card-tags">${chips}</div><span class="card-date">${dateStr}</span></div>
         </div>
       </div>`;
     }).join('');
   }
-  showScreen('scTagDetail');
+  if(shouldShow) showScreen('scTagDetail');
 }
 
 /* ─────────────────────────────────────────
@@ -830,11 +1045,15 @@ function goTagDetail(tagName){
 function goTab(tab){
   if(tab==='home'){ renderCards(); showScreen('scHome'); }
   else if(tab==='tags'){ renderTagsScreen(); showScreen('scTags'); }
-  else if(tab==='search'){ showScreen('scSearch'); setTimeout(()=>document.getElementById('searchInput').focus(),200); }
+  else if(tab==='search'){ doSearch(); showScreen('scSearch'); setTimeout(()=>document.getElementById('searchInput').focus(),200); }
 }
 function goBack(){
-  if(prevScreen==='scSearch') showScreen('scSearch');
-  else if(prevScreen==='scTagDetail') showScreen('scTagDetail');
+  if(isEditingDetail){ cancelEditDetail(); return; }
+  if(prevScreen==='scSearch'){ doSearch(); showScreen('scSearch'); }
+  else if(prevScreen==='scTagDetail'){
+    if(currentTagDetailName) renderTagDetail(currentTagDetailName, true);
+    else showScreen('scTagDetail');
+  }
   else { renderCards(); showScreen('scHome'); }
 }
 function showScreen(id){
@@ -852,15 +1071,25 @@ function doSearch(){
   if(!q){ body.innerHTML=`<div class="search-empty"><div class="empty-icon">🔍</div><div style="font-family:var(--serif);font-size:20px;color:var(--text2);margin-bottom:6px;">무엇이든 검색해보세요</div><div style="font-size:13px;color:var(--text3);line-height:1.5;">본문 내용, 태그, AI 출처까지<br>자연어로 통합 검색돼요</div></div>`; return; }
   const kws=q.toLowerCase().split(/\s+/).filter(Boolean);
   const results=items.filter(item=>{
-    const hay=[item.text,...(item.tags||[]),SRC[item.source],item.date].join(' ').toLowerCase();
+    const hay=[item.text,...(item.tags||[]),SRC[safeSource(item.source)],formatDate(item.ts||item.id)].join(' ').toLowerCase();
     return kws.every(k=>hay.includes(k));
   });
-  if(!results.length){ body.innerHTML=`<div class="search-empty"><div class="empty-icon">😶</div><div style="font-family:var(--serif);font-size:20px;color:var(--text2);">"${q}" 검색 결과 없음</div></div>`; return; }
-  function hl(t,ks){ let o=t; ks.forEach(k=>{ const r=new RegExp(`(${k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`,'gi'); o=o.replace(r,'<mark class="highlight-match">$1</mark>'); }); return o; }
+  if(!results.length){ body.innerHTML=`<div class="search-empty"><div class="empty-icon">😶</div><div style="font-family:var(--serif);font-size:20px;color:var(--text2);">&quot;${escapeHTML(q)}&quot; 검색 결과 없음</div></div>`; return; }
+  function hl(t,ks){
+    let o=escapeHTML(t);
+    ks.forEach(k=>{
+      const safeK=escapeHTML(k);
+      const r=new RegExp(`(${safeK.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`,'gi');
+      o=o.replace(r,'<mark class="highlight-match">$1</mark>');
+    });
+    return o;
+  }
   body.innerHTML=`<div class="search-result-count">${results.length}개 결과</div>`+results.map(item=>{
     const chips=(item.tags||[]).map(t=>tagPillHtml(t)).join('');
-    return `<div class="card-wrap"><div class="card ${item.source}" onclick="goDetail(${item.id},'scSearch')">
-      <div class="card-source">${SRC[item.source]}</div>
+    const src=safeSource(item.source);
+    const id=safeId(item.id);
+    return `<div class="card-wrap"><div class="card ${src}" onclick="goDetail(${id},'scSearch')">
+      <div class="card-source">${escapeHTML(SRC[src])}</div>
       <div class="card-text">${hl(item.text.replace(/\n/g,' '),kws)}</div>
       <div class="card-footer"><div class="card-tags">${chips}</div><span class="card-date">${formatDate(item.ts||item.id)}</span></div>
     </div></div>`;
@@ -876,15 +1105,20 @@ function clearSearch(){
 /* ─────────────────────────────────────────
    DOCX EXPORT
 ───────────────────────────────────────── */
+function exportDocxEncoded(encodedTagName){
+  exportDocx(dec(encodedTagName));
+}
+
 function exportDocx(tagName){
   const tagged=items.filter(i=>(i.tags||[]).includes(tagName));
   if(!tagged.length){ alert('항목이 없어요.'); return; }
-  const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const paras=tagged.map((item,idx)=>{
-    const lines=item.text.split('\n').filter(Boolean);
-    return `<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>${idx+1}. ${esc(SRC[item.source])} · ${esc(item.date)}</w:t></w:r></w:p>${lines.map(l=>`<w:p><w:r><w:t xml:space="preserve">${esc(l)}</w:t></w:r></w:p>`).join('')}<w:p/>`;
+    const lines=String(item.text ?? '').split('\n').filter(Boolean);
+    const src=safeSource(item.source);
+    const dateText=formatDate(item.ts||item.id);
+    return `<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>${idx+1}. ${escXML(SRC[src])} · ${escXML(dateText)}</w:t></w:r></w:p>${lines.map(l=>`<w:p><w:r><w:t xml:space="preserve">${escXML(l)}</w:t></w:r></w:p>`).join('')}<w:p/>`;
   }).join('');
-  const docXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Highlight — ${esc(tagName)}</w:t></w:r></w:p><w:p><w:r><w:rPr><w:color w:val="888888"/></w:rPr><w:t>${tagged.length}개 항목 · ${new Date().toLocaleDateString('ko-KR')}</w:t></w:r></w:p><w:p/>${paras}</w:body></w:document>`;
+  const docXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Highlight — ${escXML(tagName)}</w:t></w:r></w:p><w:p><w:r><w:rPr><w:color w:val="888888"/></w:rPr><w:t>${tagged.length}개 항목 · ${new Date().toLocaleDateString('ko-KR')}</w:t></w:r></w:p><w:p/>${paras}</w:body></w:document>`;
   const ct=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`;
   const rels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;
   const wrels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>`;
@@ -902,8 +1136,19 @@ function exportDocx(tagName){
   lP.forEach(a=>{out.set(a,pos);pos+=a.length;});out.set(cd,pos);pos+=cd.length;out.set(eocd,pos);
   const blob=new Blob([out],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
   const url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download=`highlight-${tagName}.docx`;document.body.appendChild(a);a.click();
+  a.href=url;a.download=`highlight-${String(tagName).replace(/[\\/:*?"<>|]/g,'-')}.docx`;document.body.appendChild(a);a.click();
   setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
+}
+
+/* ─────────────────────────────────────────
+   SERVICE WORKER
+───────────────────────────────────────── */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(err => {
+      console.warn('Service worker registration failed', err);
+    });
+  });
 }
 
 /* ─────────────────────────────────────────
