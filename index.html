@@ -117,7 +117,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 .detail-edit-box{display:none;margin:14px 0 8px;}
 .detail-edit-textarea{width:100%;min-height:220px;border:0.5px solid var(--border-md);background:var(--surface);border-radius:var(--radius);padding:14px 16px;font-family:var(--sans);font-size:15px;font-weight:300;line-height:1.7;color:var(--text);outline:none;resize:vertical;}
 .detail-edit-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px;}
-.detail-action-row{display:flex;gap:8px;margin:12px 0 24px;flex-wrap:wrap;}
+.detail-action-row{display:flex;justify-content:flex-end;gap:8px;margin:12px 0 24px;flex-wrap:wrap;}
 .detail-action-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 13px;border-radius:var(--radius-sm);background:var(--surface2);border:0.5px solid var(--border-md);color:var(--text2);font-size:13px;font-weight:500;cursor:pointer;font-family:var(--sans);}
 .detail-action-btn.primary{background:var(--text);border-color:var(--text);color:var(--bg);}
 .detail-action-btn.danger{background:#FEF2F2;border-color:rgba(220,38,38,0.2);color:#DC2626;}
@@ -282,7 +282,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
         <textarea class="detail-edit-textarea" id="detailEditTA" placeholder="저장한 내용을 수정하세요..."></textarea>
         <div class="detail-edit-actions">
           <button class="detail-action-btn" onclick="cancelEditDetail()">취소</button>
-          <button class="detail-action-btn primary" onclick="saveEditDetail()">수정 저장</button>
+          <button class="detail-action-btn primary" onclick="saveEditDetail()">완료</button>
         </div>
       </div>
       <div class="detail-meta" id="detailMeta"></div>
@@ -555,7 +555,13 @@ function cardClick(e,id,from){
    SAVE
 ───────────────────────────────────────── */
 let selectedSrc = 'chatgpt';
-function selSrc(el,src){ document.querySelectorAll('.src-chip').forEach(c=>c.classList.remove('on')); el.classList.add('on'); selectedSrc=src; }
+function setSelectedSource(src){
+  selectedSrc=safeSource(src);
+  document.querySelectorAll('.src-chip').forEach(c=>c.classList.remove('on'));
+  const chip=document.querySelector(`.src-chip.${selectedSrc}`);
+  if(chip) chip.classList.add('on');
+}
+function selSrc(el,src){ setSelectedSource(src); }
 function filterSeg(el,src){ document.querySelectorAll('.seg').forEach(s=>s.classList.remove('on')); el.classList.add('on'); currentFilter=src; renderCards(); }
 
 function formatText(raw){ return raw.replace(/([^\n])\s*(\d+[.)]\s)/g,'$1\n$2').trim(); }
@@ -1140,6 +1146,64 @@ function exportDocx(tagName){
   setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
 }
 
+
+/* ─────────────────────────────────────────
+   SHARE TARGET
+───────────────────────────────────────── */
+function detectSourceFromShare(value){
+  const v=String(value || '').toLowerCase();
+  if(v.includes('claude.ai') || v.includes('anthropic') || v.includes('claude')) return 'claude';
+  if(v.includes('gemini.google') || v.includes('bard.google') || v.includes('gemini')) return 'gemini';
+  if(v.includes('chatgpt.com') || v.includes('chat.openai.com') || v.includes('openai.com') || v.includes('chatgpt')) return 'chatgpt';
+  return selectedSrc || 'chatgpt';
+}
+
+function composeSharedText(title, text, url){
+  const parts=[];
+  const titleText=String(title || '').trim();
+  const bodyText=String(text || '').trim();
+  const linkText=String(url || '').trim();
+  if(titleText && titleText !== bodyText) parts.push(titleText);
+  if(bodyText) parts.push(bodyText);
+  if(linkText && !bodyText.includes(linkText)) parts.push(linkText);
+  return parts.join('\n').trim();
+}
+
+function resetUrlAfterShare(){
+  try{
+    const cleanUrl=window.location.pathname + window.location.hash;
+    window.history.replaceState({}, document.title, cleanUrl || './');
+  } catch(err) {}
+}
+
+function handleIncomingShare(){
+  const params=new URLSearchParams(window.location.search);
+  const hasShareData=params.has('title') || params.has('text') || params.has('url');
+  if(!hasShareData) return false;
+
+  const title=params.get('title') || '';
+  const text=params.get('text') || '';
+  const url=params.get('url') || '';
+  const sharedText=composeSharedText(title, text, url);
+  if(!sharedText){ resetUrlAfterShare(); return false; }
+
+  const detectedSource=detectSourceFromShare(`${title}\n${text}\n${url}`);
+  setSelectedSource(detectedSource);
+  selectedInputTags.clear();
+  renderInputTagRow();
+  currentFilter='all';
+  document.querySelectorAll('.seg').forEach(s=>s.classList.remove('on'));
+  const firstSeg=document.querySelector('.seg-wrap .seg');
+  if(firstSeg) firstSeg.classList.add('on');
+  document.getElementById('inputTA').value=formatText(sharedText);
+  renderCards();
+  showScreen('scHome');
+  resetUrlAfterShare();
+  toast2('공유 내용이 입력됐어요 ✓', detectedSource==='chatgpt'?'#10A37F':detectedSource==='gemini'?'#4285F4':'#D97706');
+  setTimeout(()=>document.getElementById('inputTA')?.focus(),200);
+  return true;
+}
+
 /* ─────────────────────────────────────────
    SERVICE WORKER
 ───────────────────────────────────────── */
@@ -1156,6 +1220,7 @@ if ('serviceWorker' in navigator) {
 ───────────────────────────────────────── */
 renderInputTagRow();
 renderCards();
+handleIncomingShare();
 </script>
 </body>
 </html>
