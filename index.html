@@ -104,7 +104,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 
 /* Detail */
 .detail-header{padding:56px 20px 16px;flex-shrink:0;}
-.back-btn{display:flex;align-items:center;gap:4px;font-size:16px;font-weight:500;cursor:pointer;background:none;border:none;color:var(--gemini);padding:0;font-family:var(--sans);margin-bottom:20px;}
+.detail-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;}
+.back-btn{display:flex;align-items:center;gap:4px;font-size:16px;font-weight:500;cursor:pointer;background:none;border:none;color:var(--gemini);padding:0;font-family:var(--sans);min-width:0;flex-shrink:1;}
+.detail-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-shrink:0;}
+.detail-icon-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 10px;border-radius:999px;background:var(--surface2);border:0.5px solid var(--border-md);color:var(--text2);font-size:12px;font-weight:500;cursor:pointer;font-family:var(--sans);line-height:1;min-height:32px;}
+.detail-icon-btn:active{opacity:0.72;}
+.detail-icon-btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
 .detail-badge{display:inline-flex;align-items:center;padding:5px 13px;border-radius:20px;font-size:12px;font-weight:600;}
 .detail-badge.chatgpt{background:var(--chatgpt-bg);color:var(--chatgpt);border:0.5px solid var(--chatgpt-border);}
 .detail-badge.gemini{background:var(--gemini-bg);color:var(--gemini);border:0.5px solid var(--gemini-border);}
@@ -117,7 +122,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 .detail-edit-box{display:none;margin:14px 0 8px;}
 .detail-edit-textarea{width:100%;min-height:220px;border:0.5px solid var(--border-md);background:var(--surface);border-radius:var(--radius);padding:14px 16px;font-family:var(--sans);font-size:15px;font-weight:300;line-height:1.7;color:var(--text);outline:none;resize:vertical;}
 .detail-edit-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px;}
-.detail-action-row{display:flex;justify-content:flex-end;gap:8px;margin:12px 0 24px;flex-wrap:wrap;}
 .detail-action-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 13px;border-radius:var(--radius-sm);background:var(--surface2);border:0.5px solid var(--border-md);color:var(--text2);font-size:13px;font-weight:500;cursor:pointer;font-family:var(--sans);}
 .detail-action-btn.primary{background:var(--text);border-color:var(--text);color:var(--bg);}
 .detail-action-btn.danger{background:#FEF2F2;border-color:rgba(220,38,38,0.2);color:#DC2626;}
@@ -263,7 +267,17 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
   <!-- DETAIL -->
   <div class="screen" id="scDetail" ontouchstart="sbStart(event)" ontouchmove="sbMove(event)" ontouchend="sbEnd(event)">
     <div class="detail-header">
-      <button class="back-btn" onclick="goBack()"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg><span id="detailBackLabel">저장함</span></button>
+      <div class="detail-topbar">
+        <button class="back-btn" onclick="goBack()"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg><span id="detailBackLabel">저장함</span></button>
+        <div class="detail-header-actions" id="detailHeaderActions">
+          <button class="detail-icon-btn" onclick="copyDetailText()" aria-label="본문 복사">
+            <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>복사</span>
+          </button>
+          <button class="detail-icon-btn" id="detailEditBtn" onclick="startEditDetail()" aria-label="본문 수정">
+            <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg><span>수정</span>
+          </button>
+        </div>
+      </div>
       <div style="position:relative;display:inline-block;">
         <div id="detailBadge" class="detail-badge" onclick="toggleSrcDropdown(event)" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
           <span id="detailBadgeText">-</span>
@@ -286,14 +300,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
         </div>
       </div>
       <div class="detail-meta" id="detailMeta"></div>
-      <div class="detail-action-row" id="detailActionRow">
-        <button class="detail-action-btn" onclick="copyDetailText()">
-          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>복사
-        </button>
-        <button class="detail-action-btn" id="detailEditBtn" onclick="startEditDetail()">
-          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>수정
-        </button>
-      </div>
       <div class="detail-section-label">태그</div>
       <div class="detail-tags" id="detailTags"></div>
       <button class="tag-edit-btn" onclick="openSheet(currentItemId)">+ 새 태그 추가</button>
@@ -628,10 +634,10 @@ function setDetailEditMode(on){
   isEditingDetail=on;
   const textEl=document.getElementById('detailText');
   const editBox=document.getElementById('detailEditBox');
-  const actionRow=document.getElementById('detailActionRow');
+  const headerActions=document.getElementById('detailHeaderActions');
   textEl.style.display=on?'none':'block';
   editBox.style.display=on?'block':'none';
-  actionRow.style.display=on?'none':'flex';
+  if(headerActions) headerActions.style.display=on?'none':'flex';
 }
 
 function startEditDetail(){
@@ -1187,7 +1193,9 @@ function handleIncomingShare(){
   const sharedText=composeSharedText(title, text, url);
   if(!sharedText){ resetUrlAfterShare(); return false; }
 
-  const detectedSource=detectSourceFromShare(`${title}\n${text}\n${url}`);
+  const detectedSource=detectSourceFromShare(`${title}
+${text}
+${url}`);
   setSelectedSource(detectedSource);
   selectedInputTags.clear();
   renderInputTagRow();
